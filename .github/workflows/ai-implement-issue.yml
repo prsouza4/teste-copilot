@@ -81,40 +81,32 @@ jobs:
           with open("issue_body.txt") as f:
               issue_body = f.read()[:2500]
 
-          # Ler o .agent.md como system prompt (primeiros 3500 chars)
           try:
               with open(agent_file) as f:
                   raw = f.read()
-              # Remover bloco YAML frontmatter (entre --- e ---)
               agent_prompt = re.sub(r'^---.*?---\s*', '', raw, flags=re.DOTALL)[:3500]
           except FileNotFoundError:
               agent_prompt = f"You are a {agent_name} development specialist."
 
-          system_prompt = agent_prompt + """
+          file_format_instruction = (
+              "\n\n---\n## Output Format\n\n"
+              "For EVERY file you generate, use EXACTLY this format:\n\n"
+              "### FILE: relative/path/to/file.ext\n"
+              "```language\n"
+              "file content here\n"
+              "```\n\n"
+              "Generate ALL necessary files for a complete, working implementation.\n"
+              "Include source code, unit tests, and a README if applicable.\n"
+          )
 
----
-## Instrução de saída
+          system_prompt = agent_prompt + file_format_instruction
 
-Ao gerar código, use OBRIGATORIAMENTE este formato para cada arquivo:
-
-### FILE: caminho/relativo/do/arquivo.ext
-```linguagem
-conteúdo do arquivo aqui
-```
-
-Gere TODOS os arquivos necessários para uma implementação completa e funcional.
-Inclua: código fonte, testes unitários e um README de uso se aplicável.
-"""
-
-          user_prompt = f"""Implemente a seguinte issue do GitHub:
-
-**Título:** {issue_title}
-
-**Descrição:**
-{issue_body}
-
-Gere todos os arquivos necessários para uma implementação completa seguindo as práticas do agente {agent_name}.
-"""
+          user_prompt = (
+              "Implement the following GitHub issue:\n\n"
+              f"**Title:** {issue_title}\n\n"
+              f"**Description:**\n{issue_body}\n\n"
+              f"Generate all necessary files following {agent_name} agent best practices.\n"
+          )
 
           payload = {
               "model": "gpt-4o",
@@ -143,7 +135,6 @@ Gere todos os arquivos necessários para uma implementação completa seguindo a
               print(f"Erro HTTP {e.code}: {err}", file=sys.stderr)
               sys.exit(1)
 
-          # Parsear arquivos do formato ### FILE: caminho\n```\ncontent\n```
           file_pattern = r'### FILE: (.+?)\n```(?:\w+)?\n(.*?)```'
           files = re.findall(file_pattern, content, re.DOTALL)
 
@@ -152,7 +143,6 @@ Gere todos os arquivos necessários para uma implementação completa seguindo a
               for path, _ in files:
                   print(f"  - {path.strip()}")
           else:
-              # Fallback: salvar resposta completa como nota
               print("Nenhum arquivo estruturado encontrado — salvando como notas")
               files = [("IMPLEMENTATION_NOTES.md", content)]
 
