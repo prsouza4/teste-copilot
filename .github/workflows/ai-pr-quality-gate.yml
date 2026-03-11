@@ -1,0 +1,167 @@
+name: AI PR Quality Gate
+
+# Revisão automática de PRs usando Copilot CLI com agentes especializados.
+# Sem scripts Python — cada agente comenta diretamente no PR via GitHub MCP.
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ai-quality-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Revisão de Segurança ──────────────────────────────────────────────────
+  security-review:
+    name: Security Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Copilot CLI
+        run: npm install -g @github/copilot-cli@latest
+      - name: 🔒 Agente Security
+        run: |
+          copilot --agent security --allow-all -p "
+            Revise o PR #${{ github.event.pull_request.number }} neste repositório.
+
+            Sua tarefa:
+            1. Leia os arquivos alterados no PR via GitHub MCP
+            2. Analise vulnerabilidades: OWASP Top 10, injeção, autenticação, secrets expostos
+            3. Poste um comentário no PR com o resultado no formato:
+
+            ## 🔒 Revisão de Segurança
+
+            **Veredicto:** PASS | WARN | CRITICAL_FAIL
+
+            ### Problemas encontrados
+            <lista de issues com severidade>
+
+            ### Recomendações
+            <ações corretivas>
+
+            Se CRITICAL_FAIL, explique claramente o que bloqueia o merge.
+          "
+        env:
+          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+
+  # ── Revisão de Qualidade ──────────────────────────────────────────────────
+  qa-review:
+    name: QA Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Copilot CLI
+        run: npm install -g @github/copilot-cli@latest
+      - name: ✅ Agente QA
+        run: |
+          copilot --agent qa --allow-all -p "
+            Revise o PR #${{ github.event.pull_request.number }} neste repositório.
+
+            Sua tarefa:
+            1. Leia os arquivos alterados no PR via GitHub MCP
+            2. Avalie cobertura de testes, casos de borda, tratamento de erros
+            3. Verifique se há testes para o código novo
+            4. Poste um comentário no PR com o resultado no formato:
+
+            ## ✅ Revisão de Qualidade
+
+            **Veredicto:** PASS | WARN | CRITICAL_FAIL
+
+            ### Cobertura de testes
+            <avaliação>
+
+            ### Casos de borda não cobertos
+            <lista>
+
+            ### Recomendações
+            <ações corretivas>
+          "
+        env:
+          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+
+  # ── Revisão de Arquitetura ────────────────────────────────────────────────
+  architect-review:
+    name: Architecture Review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Copilot CLI
+        run: npm install -g @github/copilot-cli@latest
+      - name: 🏗️ Agente Architect
+        run: |
+          copilot --agent architect --allow-all -p "
+            Revise o PR #${{ github.event.pull_request.number }} neste repositório.
+
+            Sua tarefa:
+            1. Leia os arquivos alterados no PR via GitHub MCP
+            2. Avalie aderência a Clean Architecture, SOLID, DDD, CQRS quando aplicável
+            3. Identifique violações de separação de camadas, acoplamento indevido
+            4. Poste um comentário no PR com o resultado no formato:
+
+            ## 🏗️ Revisão de Arquitetura
+
+            **Veredicto:** PASS | WARN | CRITICAL_FAIL
+
+            ### Pontos positivos
+            <lista>
+
+            ### Problemas arquiteturais
+            <lista com severidade>
+
+            ### Recomendações
+            <ações corretivas>
+          "
+        env:
+          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+
+  # ── Resultado Final ───────────────────────────────────────────────────────
+  aggregate:
+    name: Aggregate Results
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [security-review, qa-review, architect-review]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Copilot CLI
+        run: npm install -g @github/copilot-cli@latest
+      - name: 📊 Consolidar resultados
+        run: |
+          copilot --agent analyst --allow-all -p "
+            Leia os comentários do PR #${{ github.event.pull_request.number }} neste repositório.
+
+            Identifique os comentários de revisão de Security, QA e Architect.
+            Consolide os veredictos e poste um resumo final no formato:
+
+            ## 📊 Resultado Final da Revisão
+
+            | Agente | Veredicto |
+            |--------|-----------|
+            | 🔒 Security | <PASS/WARN/CRITICAL_FAIL> |
+            | ✅ QA | <PASS/WARN/CRITICAL_FAIL> |
+            | 🏗️ Architect | <PASS/WARN/CRITICAL_FAIL> |
+
+            **Decisão:** ✅ APROVADO PARA MERGE | ⚠️ MERGE COM RESSALVAS | ❌ BLOQUEADO
+
+            <justificativa em 2-3 linhas>
+          "
+        env:
+          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}

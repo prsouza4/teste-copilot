@@ -1,0 +1,76 @@
+name: AI Issue Triage
+
+# Triagem automática de issues usando Copilot CLI com agentes especializados.
+# Sem scripts Python — o Copilot aplica labels e comenta diretamente via GitHub MCP.
+
+on:
+  issues:
+    types: [opened, reopened]
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: issue-triage-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  triage:
+    name: AI Issue Triage
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      github.actor != 'github-actions[bot]' &&
+      github.actor != 'copilot-swe-agent[bot]'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Copilot CLI
+        run: npm install -g @github/copilot-cli@latest
+
+      - name: 📊 Triagem — Agente Analyst
+        run: |
+          copilot --agent analyst --allow-all -p "
+            Analise a issue #${{ github.event.issue.number }} neste repositório.
+
+            Título: ${{ github.event.issue.title }}
+
+            Sua tarefa:
+            1. Leia o conteúdo completo da issue via GitHub MCP
+            2. Identifique a categoria (bug, enhancement, infra, frontend, backend, docs)
+            3. Aplique as labels adequadas na issue (use gh CLI ou GitHub MCP)
+            4. Defina a prioridade (P0=crítico, P1=alto, P2=médio, P3=baixo)
+            5. Poste um comentário na issue com o resumo da triagem no formato:
+
+            ## 🤖 Triagem Automática
+            - **Categoria:** <categoria>
+            - **Prioridade:** <P0-P3>
+            - **Labels aplicadas:** <lista>
+            - **Resumo:** <2-3 linhas descrevendo o que foi identificado>
+          "
+        env:
+          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+
+      - name: 🗺️ Alinhamento — Agente Roadmap
+        run: |
+          copilot --agent roadmap --allow-all -p "
+            Analise a issue #${{ github.event.issue.number }} neste repositório.
+
+            Sua tarefa:
+            1. Leia o conteúdo completo da issue via GitHub MCP
+            2. Verifique os milestones existentes no repositório
+            3. Se houver milestone adequado, atribua à issue
+            4. Avalie se a issue é complexa o suficiente para precisar de um PRD
+            5. Se complexidade alta: poste um comentário com um PRD estruturado contendo:
+               - Problema a resolver
+               - Solução proposta
+               - Critérios de aceitação detalhados
+               - Riscos e dependências
+          "
+        env:
+          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}

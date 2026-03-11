@@ -1,0 +1,103 @@
+name: AI Implementation Plan
+
+# Quando uma issue recebe a label 'ready-for-dev', os agentes architect e
+# task-decomposer criam um plano de implementação detalhado como comentário.
+# Garante alinhamento arquitetural antes de qualquer código ser escrito.
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  implementation-plan:
+    name: Generate Implementation Plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # Só executa quando a label 'ready-for-dev' é adicionada
+    if: |
+      github.event.label.name == 'ready-for-dev' &&
+      github.actor != 'dependabot[bot]' &&
+      github.actor != 'github-actions[bot]' &&
+      github.actor != 'copilot-swe-agent[bot]'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Copilot CLI
+        run: npm install -g @github/copilot-cli@latest
+
+      - name: 🏗️ Plano de Arquitetura — Agente Architect
+        run: |
+          copilot --agent architect --allow-all -p "
+            Leia a issue #${{ github.event.issue.number }} neste repositório.
+
+            Sua tarefa é criar um plano de arquitetura ANTES da implementação:
+            1. Analise o contexto técnico da issue
+            2. Defina a abordagem arquitetural (Clean Arch, CQRS, CRUD simples, etc.)
+            3. Liste as camadas e componentes envolvidos
+            4. Identifique dependências e integrações necessárias
+            5. Poste um comentário na issue no formato:
+
+            ## 🏗️ Plano de Arquitetura
+
+            **Padrão arquitetural:** <Clean Architecture | CQRS | CRUD | Event-driven>
+            **Justificativa:** <por que este padrão para esta tarefa>
+
+            ### Componentes a criar
+            \`\`\`
+            src/
+            └── <servico>/
+                ├── Domain/
+                │   └── <entidades e value objects>
+                ├── Application/
+                │   └── <commands, queries, handlers>
+                └── Infrastructure/
+                    └── <repositórios, integrações>
+            \`\`\`
+
+            ### Dependências e integrações
+            <lista de serviços, bancos, brokers envolvidos>
+
+            ### Riscos e pontos de atenção
+            <lista de riscos>
+          "
+        env:
+          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+
+      - name: 📋 Decomposição de Tarefas — Agente Task Decomposer
+        run: |
+          copilot --agent task-decomposer --allow-all -p "
+            Leia a issue #${{ github.event.issue.number }} e o comentário de arquitetura
+            que acabou de ser postado nesta issue.
+
+            Sua tarefa é quebrar a implementação em tarefas atômicas:
+            1. Crie uma lista de subtarefas ordenadas por dependência
+            2. Estime a complexidade de cada uma (S/M/L)
+            3. Indique qual agente deve executar cada tarefa
+            4. Poste um comentário na issue no formato:
+
+            ## 📋 Plano de Implementação
+
+            | # | Tarefa | Agente | Tamanho | Depende de |
+            |---|--------|--------|---------|------------|
+            | 1 | Criar Domain entities | backend | S | - |
+            | 2 | Implementar Commands/Handlers | backend | M | 1 |
+            | 3 | Criar endpoints API | backend | S | 2 |
+            | 4 | Adicionar testes unitários | backend | M | 2 |
+            | 5 | Documentar endpoints | api-docs | S | 3 |
+
+            ### Comando para iniciar a implementação
+            \`\`\`powershell
+            git checkout develop
+            git checkout -b feature/${{ github.event.issue.number }}-<descricao>
+
+            copilot --agent backend --allow-all -p \"Implementar issue #${{ github.event.issue.number }} conforme plano de implementação postado na issue\"
+            \`\`\`
+          "
+        env:
+          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}

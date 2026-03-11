@@ -1,0 +1,59 @@
+name: AI PR Auto-Assign
+
+# Detecta o contexto do PR (backend/frontend/infra) e atribui o revisor adequado.
+# Usa o agente analyst para identificar a área e comentar quem deve revisar.
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  auto-assign:
+    name: Auto-Assign Reviewer
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      github.actor != 'github-actions[bot]' &&
+      github.actor != 'copilot-swe-agent[bot]'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Copilot CLI
+        run: npm install -g @github/copilot-cli@latest
+
+      - name: 🎯 Detectar contexto e sugerir revisor
+        run: |
+          copilot --agent analyst --allow-all -p "
+            Analise o PR #${{ github.event.pull_request.number }} neste repositório.
+
+            Sua tarefa:
+            1. Leia os arquivos alterados no PR via GitHub MCP
+            2. Identifique a área principal: backend, frontend, infra, full-stack, docs
+            3. Verifique as labels do PR
+            4. Adicione a label da área identificada no PR (backend, frontend, infra, etc.)
+            5. Poste um comentário no PR no formato:
+
+            ## 🎯 Detecção de Contexto
+
+            **Área identificada:** <backend | frontend | infra | full-stack | docs>
+            **Agente recomendado para revisão:** <nome do agente>
+
+            ### Arquivos principais alterados
+            <lista dos arquivos mais relevantes>
+
+            ### Para revisar este PR localmente
+            \`\`\`powershell
+            copilot --agent <agente> --allow-all -p \"Revise o PR #${{ github.event.pull_request.number }}\"
+            \`\`\`
+
+            > 💡 Use o comando acima para uma revisão detalhada com o agente especializado.
+          "
+        env:
+          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
