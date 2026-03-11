@@ -2,6 +2,26 @@
 
 > **IMPORTANT**: This file is intentionally minimal to reduce context window bloat. All detailed instructions are in AGENTS.md.
 
+## Branching Strategy (GitFlow)
+
+Sempre seguir GitFlow. Regras obrigatórias:
+
+- **Branch base para features:** `develop` — NUNCA criar feature diretamente de `main`
+- **Nomenclatura de branches:** `feature/<numero-issue>-<descricao-curta>` (ex: `feature/42-api-usuarios`)
+- **Todo PR de feature** aponta para `develop`, não para `main`
+- **Hotfixes** apontam para `main` E `develop`
+- **Se a branch `develop` não existir:** crie-a a partir de `main` antes de criar a feature
+- **Se a branch de feature não existir:** crie-a automaticamente a partir de `develop`
+
+```
+main        ← produção
+develop     ← integração (base de toda feature)
+feature/X   ← implementação (criada a partir de develop)
+hotfix/X    ← correção urgente (criada a partir de main)
+```
+
+---
+
 ## Agent Delegation for Complex Tasks
 
 For tasks requiring multiple steps, specialized expertise, or extensive context, delegate using `#runSubagent` rather than handling everything inline:
