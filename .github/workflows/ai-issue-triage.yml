@@ -102,10 +102,13 @@ jobs:
           gh issue comment "${{ github.event.issue.number }}" \
             --body-file triage_comment.txt
 
-      - name: 🤖 Atribuir @copilot automaticamente
+      - name: 🤖 Acionar Copilot Coding Agent
         env:
           GH_TOKEN: ${{ github.token }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
         run: |
-          gh issue edit "${{ github.event.issue.number }}" --add-assignee "copilot" \
-            && echo "✅ @copilot atribuído — Coding Agent irá iniciar a implementação" \
-            || echo "⚠️ Não foi possível atribuir @copilot (verifique se Copilot está habilitado no repositório)"
+          gh issue comment "${{ github.event.issue.number }}" --body "@copilot Implemente esta issue conforme a triagem acima.
+
+          Título: ${ISSUE_TITLE}
+
+          Siga as instruções em \`.github/copilot-instructions.md\` e use o agente especializado adequado para esta tarefa."
