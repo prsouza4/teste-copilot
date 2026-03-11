@@ -41,6 +41,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+        run: |
+          LABELS=$(gh issue view "$ISSUE_NUMBER" --json labels -q '.labels[].name' | tr '\n' ',')
           TITLE=$(gh issue view "$ISSUE_NUMBER" --json title -q '.title')
           BODY=$(gh issue view "$ISSUE_NUMBER"  --json body  -q '.body')
 
