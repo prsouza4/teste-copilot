@@ -1,7 +1,7 @@
 name: AI Issue Triage
 
-# Triagem automática de issues usando Copilot CLI com agentes especializados.
-# Sem scripts Python — o Copilot aplica labels e comenta diretamente via GitHub MCP.
+# Triagem automática de issues usando GitHub Models API.
+# Sem dependências externas — usa Python nativo + gh CLI + GitHub Models API.
 
 on:
   issues:
@@ -10,6 +10,7 @@ on:
 permissions:
   contents: read
   issues: write
+  models: read
 
 concurrency:
   group: issue-triage-${{ github.event.issue.number }}
@@ -30,47 +31,73 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Copilot CLI
-        run: npm install -g @github/copilot-cli@latest
-
-      - name: 📊 Triagem — Agente Analyst
-        run: |
-          copilot --agent analyst --allow-all -p "
-            Analise a issue #${{ github.event.issue.number }} neste repositório.
-
-            Título: ${{ github.event.issue.title }}
-
-            Sua tarefa:
-            1. Leia o conteúdo completo da issue via GitHub MCP
-            2. Identifique a categoria (bug, enhancement, infra, frontend, backend, docs)
-            3. Aplique as labels adequadas na issue (use gh CLI ou GitHub MCP)
-            4. Defina a prioridade (P0=crítico, P1=alto, P2=médio, P3=baixo)
-            5. Poste um comentário na issue com o resumo da triagem no formato:
-
-            ## 🤖 Triagem Automática
-            - **Categoria:** <categoria>
-            - **Prioridade:** <P0-P3>
-            - **Labels aplicadas:** <lista>
-            - **Resumo:** <2-3 linhas descrevendo o que foi identificado>
-          "
+      - name: 📊 Triagem com GitHub Models API
         env:
-          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-
-      - name: 🗺️ Alinhamento — Agente Roadmap
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
-          copilot --agent roadmap --allow-all -p "
-            Analise a issue #${{ github.event.issue.number }} neste repositório.
+          python3 << 'PYEOF'
+          import json, urllib.request, urllib.error, os, sys
 
-            Sua tarefa:
-            1. Leia o conteúdo completo da issue via GitHub MCP
-            2. Verifique os milestones existentes no repositório
-            3. Se houver milestone adequado, atribua à issue
-            4. Avalie se a issue é complexa o suficiente para precisar de um PRD
-            5. Se complexidade alta: poste um comentário com um PRD estruturado contendo:
-               - Problema a resolver
-               - Solução proposta
-               - Critérios de aceitação detalhados
-               - Riscos e dependências
-          "
+          token   = os.environ["GH_TOKEN"]
+          number  = os.environ["ISSUE_NUMBER"]
+          title   = os.environ.get("ISSUE_TITLE", "")
+          body    = os.environ.get("ISSUE_BODY", "") or ""
+
+          system_prompt = """Você é um especialista em triagem de issues de software.
+          Analise a issue fornecida e responda SOMENTE com o bloco markdown abaixo preenchido.
+          Não adicione texto fora do bloco.
+
+          ## 🤖 Triagem Automática
+
+          - **Categoria:** <bug | enhancement | infra | frontend | backend | docs>
+          - **Prioridade:** <P0=crítico | P1=alto | P2=médio | P3=baixo>
+          - **Labels sugeridas:** <lista separada por vírgulas>
+          - **Resumo:** <2-3 linhas descrevendo o que foi identificado>
+          - **Próximo passo:** <ação recomendada para o time>
+          """
+
+          user_prompt = f"Título: {title}\n\nDescrição:\n{body[:3000]}"
+
+          payload = {
+              "model": "gpt-4o-mini",
+              "messages": [
+                  {"role": "system", "content": system_prompt},
+                  {"role": "user",   "content": user_prompt}
+              ],
+              "max_tokens": 600,
+              "temperature": 0.2
+          }
+
+          req = urllib.request.Request(
+              "https://models.inference.ai.azure.com/chat/completions",
+              data=json.dumps(payload).encode(),
+              headers={
+                  "Authorization": f"Bearer {token}",
+                  "Content-Type":  "application/json"
+              }
+          )
+
+          try:
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  result  = json.load(r)
+                  comment = result["choices"][0]["message"]["content"]
+          except urllib.error.HTTPError as e:
+              error_body = e.read().decode()
+              print(f"HTTP Error {e.code}: {error_body}", file=sys.stderr)
+              comment = f"## 🤖 Triagem Automática\n\n_Erro ao chamar GitHub Models API: HTTP {e.code}_\n\n```\n{error_body[:500]}\n```"
+
+          with open("triage_comment.txt", "w") as f:
+              f.write(comment)
+
+          print(comment)
+          PYEOF
+
+      - name: 💬 Postar comentário na issue
         env:
-          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" \
+            --body-file triage_comment.txt

@@ -1,7 +1,7 @@
 name: AI PR Description Generator
 
-# Quando um PR é aberto sem descrição (ou descrição muito curta),
-# o agente explainer lê os commits e arquivos alterados e gera
+# Quando um PR é aberto sem descrição (ou muito curta),
+# a GitHub Models API lê os arquivos alterados e gera
 # uma descrição profissional automaticamente.
 
 on:
@@ -12,6 +12,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  models: read
 
 jobs:
   generate-description:
@@ -26,66 +27,113 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Setup Copilot CLI
-        run: npm install -g @github/copilot-cli@latest
-
-      - name: Verificar se PR tem descrição
+      - name: Verificar se PR precisa de descrição
         id: check-description
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          BODY="${{ github.event.pull_request.body }}"
+          BODY="${PR_BODY:-}"
           if [ ${#BODY} -lt 50 ]; then
-            echo "needs_description=true" >> $GITHUB_OUTPUT
+            echo "needs_description=true"  >> $GITHUB_OUTPUT
           else
             echo "needs_description=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: 📝 Gerar descrição — Agente Explainer
+      - name: 📝 Gerar descrição com GitHub Models API
         if: steps.check-description.outputs.needs_description == 'true'
-        run: |
-          copilot --agent explainer --allow-all -p "
-            Analise o PR #${{ github.event.pull_request.number }} neste repositório.
-
-            Título do PR: ${{ github.event.pull_request.title }}
-            Branch: ${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}
-
-            Sua tarefa:
-            1. Leia os arquivos alterados no PR via GitHub MCP
-            2. Leia os commits do PR
-            3. Gere uma descrição profissional e atualize o PR via GitHub MCP
-            4. A descrição deve seguir este formato:
-
-            ## 📋 O que este PR faz
-
-            <resumo claro em 2-3 linhas do que foi implementado>
-
-            ## 🔄 Mudanças realizadas
-
-            - <mudança 1>
-            - <mudança 2>
-            - <mudança 3>
-
-            ## 🧪 Como testar
-
-            \`\`\`bash
-            <comandos para testar as mudanças>
-            \`\`\`
-
-            ## ✅ Checklist
-
-            - [ ] Testes adicionados/atualizados
-            - [ ] Documentação atualizada
-            - [ ] Sem breaking changes (ou documentados abaixo)
-
-            ## 🔗 Issues relacionadas
-
-            Closes #<número da issue se identificável pelos commits ou branch>
-
-            ---
-            *Descrição gerada automaticamente pelo agente Explainer*
-          "
         env:
-          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+        run: |
+          DIFF=$(gh pr diff "$PR_NUMBER" | head -c 3000 || echo "Sem diff disponível")
+          COMMITS=$(gh pr view "$PR_NUMBER" --json commits -q '.commits[].messageHeadline' | head -10 | tr '\n' '; ')
+
+          python3 << 'PYEOF'
+          import json, urllib.request, urllib.error, os, subprocess
+
+          token   = os.environ["GH_TOKEN"]
+          number  = os.environ["PR_NUMBER"]
+          title   = os.environ.get("PR_TITLE", "")
+          branch  = os.environ.get("PR_BRANCH", "")
+          base    = os.environ.get("PR_BASE", "")
+          diff    = os.environ.get("DIFF", "")
+          commits = os.environ.get("COMMITS", "")
+
+          system_prompt = """Você é especialista em escrever descrições de Pull Request claras e profissionais.
+          Analise o diff e commits e gere uma descrição completa.
+          Responda SOMENTE com o markdown abaixo preenchido — sem texto extra fora do bloco.
+
+          ## 📋 O que este PR faz
+
+          <resumo claro em 2-3 linhas do que foi implementado>
+
+          ## 🔄 Mudanças realizadas
+
+          - <mudança 1>
+          - <mudança 2>
+
+          ## 🧪 Como testar
+
+          ```bash
+          <comandos para testar as mudanças, ou "Sem comandos específicos">
+          ```
+
+          ## ✅ Checklist
+
+          - [ ] Testes adicionados/atualizados
+          - [ ] Documentação atualizada
+          - [ ] Sem breaking changes
+
+          ## 🔗 Issues relacionadas
+
+          Closes #<número se identificável pelo branch ou commits, senão omitir>
+
+          ---
+          *Descrição gerada automaticamente*
+          """
+
+          user_prompt = f"Título: {title}\nBranch: {branch} → {base}\nCommits: {commits}\n\nDiff:\n{diff}"
+
+          payload = {
+              "model": "gpt-4o-mini",
+              "messages": [
+                  {"role": "system", "content": system_prompt},
+                  {"role": "user",   "content": user_prompt}
+              ],
+              "max_tokens": 800,
+              "temperature": 0.2
+          }
+
+          req = urllib.request.Request(
+              "https://models.inference.ai.azure.com/chat/completions",
+              data=json.dumps(payload).encode(),
+              headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+          )
+
+          try:
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  description = json.load(r)["choices"][0]["message"]["content"]
+          except urllib.error.HTTPError as e:
+              print(f"Erro HTTP {e.code}: {e.read().decode()[:300]}")
+              exit(0)
+
+          with open("pr_description.txt", "w") as f:
+              f.write(description)
+          print(description)
+          PYEOF
+
+      - name: ✏️ Atualizar descrição do PR
+        if: steps.check-description.outputs.needs_description == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr edit "${{ github.event.pull_request.number }}" --body-file pr_description.txt
 
       - name: ✅ PR já tem descrição
         if: steps.check-description.outputs.needs_description == 'false'

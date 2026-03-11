@@ -1,7 +1,7 @@
 name: AI Implementation Plan
 
-# Quando uma issue recebe a label 'ready-for-dev', os agentes architect e
-# task-decomposer criam um plano de implementação detalhado como comentário.
+# Quando uma issue recebe a label 'ready-for-dev', a GitHub Models API
+# gera um plano de implementação detalhado e posta como comentário.
 # Garante alinhamento arquitetural antes de qualquer código ser escrito.
 
 on:
@@ -11,6 +11,7 @@ on:
 permissions:
   contents: read
   issues: write
+  models: read
 
 jobs:
   implementation-plan:
@@ -18,7 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
-    # Só executa quando a label 'ready-for-dev' é adicionada
     if: |
       github.event.label.name == 'ready-for-dev' &&
       github.actor != 'dependabot[bot]' &&
@@ -28,76 +28,92 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Copilot CLI
-        run: npm install -g @github/copilot-cli@latest
-
-      - name: 🏗️ Plano de Arquitetura — Agente Architect
-        run: |
-          copilot --agent architect --allow-all -p "
-            Leia a issue #${{ github.event.issue.number }} neste repositório.
-
-            Sua tarefa é criar um plano de arquitetura ANTES da implementação:
-            1. Analise o contexto técnico da issue
-            2. Defina a abordagem arquitetural (Clean Arch, CQRS, CRUD simples, etc.)
-            3. Liste as camadas e componentes envolvidos
-            4. Identifique dependências e integrações necessárias
-            5. Poste um comentário na issue no formato:
-
-            ## 🏗️ Plano de Arquitetura
-
-            **Padrão arquitetural:** <Clean Architecture | CQRS | CRUD | Event-driven>
-            **Justificativa:** <por que este padrão para esta tarefa>
-
-            ### Componentes a criar
-            \`\`\`
-            src/
-            └── <servico>/
-                ├── Domain/
-                │   └── <entidades e value objects>
-                ├── Application/
-                │   └── <commands, queries, handlers>
-                └── Infrastructure/
-                    └── <repositórios, integrações>
-            \`\`\`
-
-            ### Dependências e integrações
-            <lista de serviços, bancos, brokers envolvidos>
-
-            ### Riscos e pontos de atenção
-            <lista de riscos>
-          "
+      - name: 🏗️ Gerar plano de implementação com GitHub Models API
         env:
-          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-
-      - name: 📋 Decomposição de Tarefas — Agente Task Decomposer
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          REPO: ${{ github.repository }}
         run: |
-          copilot --agent task-decomposer --allow-all -p "
-            Leia a issue #${{ github.event.issue.number }} e o comentário de arquitetura
-            que acabou de ser postado nesta issue.
+          python3 << 'PYEOF'
+          import json, urllib.request, urllib.error, os, sys
 
-            Sua tarefa é quebrar a implementação em tarefas atômicas:
-            1. Crie uma lista de subtarefas ordenadas por dependência
-            2. Estime a complexidade de cada uma (S/M/L)
-            3. Indique qual agente deve executar cada tarefa
-            4. Poste um comentário na issue no formato:
+          token  = os.environ["GH_TOKEN"]
+          number = os.environ["ISSUE_NUMBER"]
+          title  = os.environ.get("ISSUE_TITLE", "")
+          body   = os.environ.get("ISSUE_BODY", "") or ""
+          repo   = os.environ.get("REPO", "")
 
-            ## 📋 Plano de Implementação
+          system_prompt = """Você é um arquiteto de software e especialista em decomposição de tarefas.
+          Analise a issue e gere um plano de implementação completo.
+          Responda SOMENTE com o bloco markdown abaixo preenchido — sem texto extra fora do bloco.
 
-            | # | Tarefa | Agente | Tamanho | Depende de |
-            |---|--------|--------|---------|------------|
-            | 1 | Criar Domain entities | backend | S | - |
-            | 2 | Implementar Commands/Handlers | backend | M | 1 |
-            | 3 | Criar endpoints API | backend | S | 2 |
-            | 4 | Adicionar testes unitários | backend | M | 2 |
-            | 5 | Documentar endpoints | api-docs | S | 3 |
+          ## 🏗️ Plano de Implementação
 
-            ### Comando para iniciar a implementação
-            \`\`\`powershell
-            git checkout develop
-            git checkout -b feature/${{ github.event.issue.number }}-<descricao>
+          ### Abordagem arquitetural
+          **Padrão:** <Clean Architecture | CQRS | CRUD | Event-driven>
+          **Justificativa:** <por que este padrão para esta tarefa>
 
-            copilot --agent backend --allow-all -p \"Implementar issue #${{ github.event.issue.number }} conforme plano de implementação postado na issue\"
-            \`\`\`
-          "
+          ### Estrutura de arquivos a criar
+          ```
+          src/
+          └── <descreva a estrutura de pastas e arquivos>
+          ```
+
+          ### Tarefas de implementação
+
+          | # | Tarefa | Agente | Tamanho |
+          |---|--------|--------|---------|
+          | 1 | <tarefa 1> | backend | S/M/L |
+          | 2 | <tarefa 2> | backend | S/M/L |
+
+          ### Dependências e integrações
+          <lista de serviços, bancos, brokers ou "Nenhuma dependência externa">
+
+          ### Comando para iniciar localmente
+          ```powershell
+          git checkout develop
+          git checkout -b feature/ISSUE_NUMBER-<descricao-curta>
+          copilot --agent backend --allow-all -p "Implementar issue #ISSUE_NUMBER: ISSUE_TITLE"
+          ```
+
+          ### Riscos e pontos de atenção
+          <lista ou "Sem riscos identificados">
+          """
+
+          user_prompt = f"Título: {title}\n\nDescrição:\n{body[:3000]}"
+          user_prompt = user_prompt.replace("ISSUE_NUMBER", number).replace("ISSUE_TITLE", title)
+
+          payload = {
+              "model": "gpt-4o-mini",
+              "messages": [
+                  {"role": "system", "content": system_prompt.replace("ISSUE_NUMBER", number).replace("ISSUE_TITLE", title)},
+                  {"role": "user",   "content": user_prompt}
+              ],
+              "max_tokens": 1000,
+              "temperature": 0.2
+          }
+
+          req = urllib.request.Request(
+              "https://models.inference.ai.azure.com/chat/completions",
+              data=json.dumps(payload).encode(),
+              headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+          )
+
+          try:
+              with urllib.request.urlopen(req, timeout=45) as r:
+                  comment = json.load(r)["choices"][0]["message"]["content"]
+          except urllib.error.HTTPError as e:
+              comment = f"## 🏗️ Plano de Implementação\n\n_Erro HTTP {e.code}: {e.read().decode()[:300]}_"
+
+          with open("plan_comment.txt", "w") as f:
+              f.write(comment)
+          print(comment)
+          PYEOF
+
+      - name: 💬 Postar plano na issue
         env:
-          GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --body-file plan_comment.txt
