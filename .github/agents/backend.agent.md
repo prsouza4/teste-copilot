@@ -36,9 +36,9 @@ model: claude-opus-4.5
 
 | Layer | Technology |
 |---|---|
-| Language | C# 12+ (.NET 8+) |
-| Web Framework | ASP.NET Core (Minimal APIs or Controllers) |
-| ORM | Entity Framework Core 8 / Dapper for complex queries |
+| Language | C# 13 (.NET 10) — OBRIGATÓRIO: use APENAS .NET 10, nunca .NET 8 ou 9 |
+| Web Framework | ASP.NET Core 10 (Minimal APIs ou Controllers) |
+| ORM | Entity Framework Core 10 / Dapper para queries complexas |
 | Messaging | MassTransit + RabbitMQ / Azure Service Bus |
 | CQRS | MediatR |
 | Validation | FluentValidation |

@@ -173,7 +173,7 @@ jobs:
               "6. If generating .NET/C# code, you MUST include:\n"
               "   - A .csproj file for each project (with correct SDK and PackageReferences)\n"
               "   - A .sln file at the root\n"
-              "   - Use .NET 8 unless otherwise specified\n\n"
+              "   - Use .NET 10 (net10.0) by default. NEVER use .NET 8 or .NET 9.\n\n"
               "Begin now with ### FILE:"
           )
 
