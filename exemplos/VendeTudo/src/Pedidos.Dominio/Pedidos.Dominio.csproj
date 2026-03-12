@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>VendeTudo.Pedidos.Dominio</RootNamespace>
+  </PropertyGroup>
+</Project>

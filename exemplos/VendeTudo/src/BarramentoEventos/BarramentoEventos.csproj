@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>VendeTudo.BarramentoEventos</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\VendeTudo.Compartilhado\VendeTudo.Compartilhado.csproj" />
+  </ItemGroup>
+</Project>

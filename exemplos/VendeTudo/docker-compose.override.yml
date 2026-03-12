@@ -1,0 +1,45 @@
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  rabbitmq:
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  identidade-api:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    volumes:
+      - ./src/Identidade.API:/app/src
+    ports:
+      - "5001:5001"
+
+  catalogo-api:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    volumes:
+      - ./src/Catalogo.API:/app/src
+    ports:
+      - "5002:5002"
+
+  cesta-api:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    volumes:
+      - ./src/Cesta.API:/app/src
+    ports:
+      - "5003:5003"
+
+  pedidos-api:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    volumes:
+      - ./src/Pedidos.API:/app/src
+    ports:
+      - "5004:5004"

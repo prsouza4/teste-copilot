@@ -1,0 +1,129 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - vendetudo_postgres:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      retries: 10
+
+  identidade-api:
+    build:
+      context: .
+      dockerfile: src/Identidade.API/Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5001
+      - ConnectionStrings__BancoIdentidade=Host=postgres;Database=vendetudo_identidade;Username=postgres;Password=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  catalogo-api:
+    build:
+      context: .
+      dockerfile: src/Catalogo.API/Dockerfile
+    ports:
+      - "5002:5002"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5002
+      - ConnectionStrings__BancoCatalogo=Host=postgres;Database=vendetudo_catalogo;Username=postgres;Password=postgres
+      - UrlIdentidade=http://identidade-api:5001
+      - BarramentoEventos__ServidorRabbitMQ=rabbitmq
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  cesta-api:
+    build:
+      context: .
+      dockerfile: src/Cesta.API/Dockerfile
+    ports:
+      - "5003:5003"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5003
+      - ConnectionStrings__Redis=redis:6379
+      - UrlIdentidade=http://identidade-api:5001
+      - BarramentoEventos__ServidorRabbitMQ=rabbitmq
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  pedidos-api:
+    build:
+      context: .
+      dockerfile: src/Pedidos.API/Dockerfile
+    ports:
+      - "5004:5004"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:5004
+      - ConnectionStrings__BancoPedidos=Host=postgres;Database=vendetudo_pedidos;Username=postgres;Password=postgres
+      - UrlIdentidade=http://identidade-api:5001
+      - BarramentoEventos__ServidorRabbitMQ=rabbitmq
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  processador-pedidos:
+    build:
+      context: .
+      dockerfile: src/ProcessadorPedidos/Dockerfile
+    environment:
+      - ConnectionStrings__BancoPedidos=Host=postgres;Database=vendetudo_pedidos;Username=postgres;Password=postgres
+      - BarramentoEventos__ServidorRabbitMQ=rabbitmq
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  processador-pagamentos:
+    build:
+      context: .
+      dockerfile: src/ProcessadorPagamentos/Dockerfile
+    environment:
+      - ConnectionStrings__BancoPedidos=Host=postgres;Database=vendetudo_pedidos;Username=postgres;Password=postgres
+      - BarramentoEventos__ServidorRabbitMQ=rabbitmq
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  vendetudo_postgres:

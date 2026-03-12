@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>VendeTudo.BarramentoEventosRabbitMQ</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="RabbitMQ.Client" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BarramentoEventos\BarramentoEventos.csproj" />
+    <ProjectReference Include="..\VendeTudo.Compartilhado\VendeTudo.Compartilhado.csproj" />
+  </ItemGroup>
+</Project>

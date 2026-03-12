@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>VendeTudo.Cesta.API</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="StackExchange.Redis" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\VendeTudo.PadroeServico\VendeTudo.PadroeServico.csproj" />
+    <ProjectReference Include="..\VendeTudo.Compartilhado\VendeTudo.Compartilhado.csproj" />
+    <ProjectReference Include="..\BarramentoEventos\BarramentoEventos.csproj" />
+    <ProjectReference Include="..\BarramentoEventosRabbitMQ\BarramentoEventosRabbitMQ.csproj" />
+  </ItemGroup>
+</Project>
