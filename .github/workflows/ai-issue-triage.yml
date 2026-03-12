@@ -94,7 +94,7 @@ jobs:
                   {"role": "system", "content": system_prompt},
                   {"role": "user",   "content": "Titulo: " + title + "\n\nDescricao:\n" + body}
               ],
-              "max_tokens": 500,
+              "max_completion_tokens": 500,
               "temperature": 0.2
           }
 
@@ -168,7 +168,7 @@ jobs:
                       "Generate all necessary files following " + agent_name + " agent best practices.\n"
                   )}
               ],
-              "max_tokens": 4096,
+              "max_completion_tokens": 4096,
               "temperature": 0.1
           }
 
