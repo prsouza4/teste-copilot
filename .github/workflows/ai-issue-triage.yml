@@ -298,51 +298,46 @@ jobs:
 
             # Auto-fix: garantir ProjectReferences em projetos de teste
             python3 << 'FIXEOF'
-import glob, os, re
+            import glob, os, re
 
-def find_all_csproj():
-    return [f for f in glob.glob("**/*.csproj", recursive=True)
-            if "_build_tmp" not in f and ".git" not in f]
+            def find_all_csproj():
+                return [f for f in glob.glob("**/*.csproj", recursive=True)
+                        if "_build_tmp" not in f and ".git" not in f]
 
-def is_test_project(path):
-    return bool(re.search(r'[Tt]est|[Ss]pec', os.path.basename(path)))
+            def is_test_project(path):
+                return bool(re.search(r'[Tt]est|[Ss]pec', os.path.basename(path)))
 
-all_projs = find_all_csproj()
-main_projs = [p for p in all_projs if not is_test_project(p)]
-test_projs = [p for p in all_projs if is_test_project(p)]
+            all_projs = find_all_csproj()
+            main_projs = [p for p in all_projs if not is_test_project(p)]
+            test_projs = [p for p in all_projs if is_test_project(p)]
 
-print("Projetos principais: " + str([os.path.basename(p) for p in main_projs]))
-print("Projetos de teste:   " + str([os.path.basename(p) for p in test_projs]))
+            print("Projetos principais: " + str([os.path.basename(p) for p in main_projs]))
+            print("Projetos de teste:   " + str([os.path.basename(p) for p in test_projs]))
 
-for test_path in test_projs:
-    test_dir = os.path.dirname(os.path.abspath(test_path))
-    content = open(test_path).read()
-    added = []
-
-    for main_path in main_projs:
-        main_abs = os.path.abspath(main_path)
-        main_name = os.path.basename(main_path)
-        # Ja referenciado?
-        if main_name in content or os.path.basename(os.path.dirname(main_abs)) in content:
-            continue
-        # Calcula caminho relativo do test para o main
-        rel = os.path.relpath(main_abs, test_dir).replace("\\", "/")
-        ref_tag = '    <ProjectReference Include="' + rel + '" />'
-        # Inserir no primeiro <ItemGroup> existente ou criar novo
-        if "<ItemGroup>" in content:
-            content = content.replace("<ItemGroup>", "<ItemGroup>\n" + ref_tag, 1)
-        else:
-            content = content.replace("</Project>",
-                "  <ItemGroup>\n" + ref_tag + "\n  </ItemGroup>\n</Project>")
-        added.append(main_name)
-
-    if added:
-        with open(test_path, "w") as f:
-            f.write(content)
-        print("FIXED " + test_path + " -> adicionado: " + str(added))
-    else:
-        print("OK " + test_path + " (referencias ja existem)")
-FIXEOF
+            for test_path in test_projs:
+                test_dir = os.path.dirname(os.path.abspath(test_path))
+                content = open(test_path).read()
+                added = []
+                for main_path in main_projs:
+                    main_abs = os.path.abspath(main_path)
+                    main_name = os.path.basename(main_path)
+                    if main_name in content or os.path.basename(os.path.dirname(main_abs)) in content:
+                        continue
+                    rel = os.path.relpath(main_abs, test_dir).replace("\\", "/")
+                    ref_tag = '    <ProjectReference Include="' + rel + '" />'
+                    if "<ItemGroup>" in content:
+                        content = content.replace("<ItemGroup>", "<ItemGroup>\n" + ref_tag, 1)
+                    else:
+                        content = content.replace("</Project>",
+                            "  <ItemGroup>\n" + ref_tag + "\n  </ItemGroup>\n</Project>")
+                    added.append(main_name)
+                if added:
+                    with open(test_path, "w") as f:
+                        f.write(content)
+                    print("FIXED " + test_path + " -> adicionado: " + str(added))
+                else:
+                    print("OK " + test_path + " (referencias ja existem)")
+            FIXEOF
 
             dotnet restore "$CSPROJ"
             BUILD_LOG=$(dotnet build "$CSPROJ" --no-restore --no-incremental 2>&1) && BUILD_STATUS="passed" || BUILD_STATUS="failed"
