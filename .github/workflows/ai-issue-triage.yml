@@ -158,7 +158,11 @@ jobs:
               "```\n\n"
               "3. Start your response immediately with the first ### FILE: line.\n"
               "4. Generate all files needed: source code, tests, README.\n"
-              "5. Use real, complete, production-ready code — not placeholders.\n\n"
+              "5. Use real, complete, production-ready code — not placeholders.\n"
+              "6. If generating .NET/C# code, you MUST include:\n"
+              "   - A .csproj file for each project (with correct SDK and PackageReferences)\n"
+              "   - A .sln file at the root\n"
+              "   - Use .NET 8 unless otherwise specified\n\n"
               "Begin now with ### FILE:"
           )
 
@@ -261,15 +265,26 @@ jobs:
           BUILD_LOG=""
           TEST_LOG=""
 
-          # .NET
+          # .NET — detecta .csproj/.sln OU arquivos .cs
           if find . -name "*.csproj" -o -name "*.sln" | grep -q .; then
-            echo "Stack detectada: .NET"
+            echo "Stack detectada: .NET (csproj/sln encontrado)"
             BUILD_LOG=$(dotnet build --no-incremental 2>&1) && BUILD_STATUS="passed" || BUILD_STATUS="failed"
             echo "$BUILD_LOG"
             if [ "$BUILD_STATUS" = "passed" ]; then
               TEST_LOG=$(dotnet test --no-build --logger "console;verbosity=normal" 2>&1) && TEST_STATUS="passed" || TEST_STATUS="failed"
               echo "$TEST_LOG"
             fi
+
+          elif find . -name "*.cs" | grep -q .; then
+            echo "Stack detectada: .NET (arquivos .cs sem .csproj — criando projeto minimo)"
+            # Cria um projeto minimal para tentar compilar os .cs gerados
+            mkdir -p _build_tmp
+            dotnet new classlib -n GeneratedCode -o _build_tmp/GeneratedCode --no-restore -f net8.0 2>/dev/null
+            find . -name "*.cs" ! -path "./_build_tmp/*" -exec cp {} _build_tmp/GeneratedCode/ \;
+            rm -f _build_tmp/GeneratedCode/Class1.cs
+            BUILD_LOG=$(dotnet build _build_tmp/GeneratedCode --no-restore 2>&1) && BUILD_STATUS="passed" || BUILD_STATUS="failed"
+            echo "$BUILD_LOG"
+            TEST_STATUS="skipped"
 
           # Node / frontend
           elif [ -f "package.json" ]; then
