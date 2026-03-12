@@ -1,0 +1,7 @@
+## Triagem Automatica
+
+- **Categoria:** backend
+- **Prioridade:** P2
+- **Labels sugeridas:** api, backend, crud, enhancement
+- **Resumo:** Implementar uma API para gerenciar endereços, incluindo operações de CRUD e a validação contra endereços duplicados.
+- **Proximo passo:** Criar uma tarefa para desenvolvimento da API com os critérios de aceitação definidos.
