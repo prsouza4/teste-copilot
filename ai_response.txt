@@ -1,0 +1,429 @@
+### FILE: exemplos/api-enderecos/src/Domain/Entities/Address.cs
+```csharp
+namespace ApiEnderecos.Domain.Entities;
+
+public class Address
+{
+    public Guid Id { get; private set; }
+    public string Street { get; private set; }
+    public string City { get; private set; }
+    public string State { get; private set; }
+    public string ZipCode { get; private set; }
+
+    private Address() { }
+
+    public Address(string street, string city, string state, string zipCode)
+    {
+        Id = Guid.NewGuid();
+        Street = street;
+        City = city;
+        State = state;
+        ZipCode = zipCode;
+    }
+
+    public void Update(string street, string city, string state, string zipCode)
+    {
+        Street = street;
+        City = city;
+        State = state;
+        ZipCode = zipCode;
+    }
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is not Address other) return false;
+        return Street == other.Street && City == other.City && State == other.State && ZipCode == other.ZipCode;
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(Street, City, State, ZipCode);
+    }
+}
+```
+
+### FILE: exemplos/api-enderecos/src/Domain/Interfaces/IAddressRepository.cs
+```csharp
+using ApiEnderecos.Domain.Entities;
+
+namespace ApiEnderecos.Domain.Interfaces;
+
+public interface IAddressRepository
+{
+    Task<Address?> GetByIdAsync(Guid id);
+    Task<Address?> GetByDetailsAsync(string street, string city, string state, string zipCode);
+    Task<IEnumerable<Address>> GetAllAsync();
+    Task AddAsync(Address address);
+    Task UpdateAsync(Address address);
+    Task DeleteAsync(Address address);
+}
+```
+
+### FILE: exemplos/api-enderecos/src/Application/Commands/CreateAddressCommand.cs
+```csharp
+using MediatR;
+
+namespace ApiEnderecos.Application.Commands;
+
+public record CreateAddressCommand(string Street, string City, string State, string ZipCode) : IRequest<Guid>;
+```
+
+### FILE: exemplos/api-enderecos/src/Application/Commands/UpdateAddressCommand.cs
+```csharp
+using MediatR;
+
+namespace ApiEnderecos.Application.Commands;
+
+public record UpdateAddressCommand(Guid Id, string Street, string City, string State, string ZipCode) : IRequest;
+```
+
+### FILE: exemplos/api-enderecos/src/Application/Commands/DeleteAddressCommand.cs
+```csharp
+using MediatR;
+
+namespace ApiEnderecos.Application.Commands;
+
+public record DeleteAddressCommand(Guid Id) : IRequest;
+```
+
+### FILE: exemplos/api-enderecos/src/Application/Queries/GetAddressByIdQuery.cs
+```csharp
+using ApiEnderecos.Application.DTOs;
+using MediatR;
+
+namespace ApiEnderecos.Application.Queries;
+
+public record GetAddressByIdQuery(Guid Id) : IRequest<AddressDto>;
+```
+
+### FILE: exemplos/api-enderecos/src/Application/Queries/GetAllAddressesQuery.cs
+```csharp
+using ApiEnderecos.Application.DTOs;
+using MediatR;
+
+namespace ApiEnderecos.Application.Queries;
+
+public record GetAllAddressesQuery() : IRequest<IEnumerable<AddressDto>>;
+```
+
+### FILE: exemplos/api-enderecos/src/Application/DTOs/AddressDto.cs
+```csharp
+namespace ApiEnderecos.Application.DTOs;
+
+public record AddressDto(Guid Id, string Street, string City, string State, string ZipCode);
+```
+
+### FILE: exemplos/api-enderecos/src/Application/Handlers/CreateAddressCommandHandler.cs
+```csharp
+using ApiEnderecos.Application.Commands;
+using ApiEnderecos.Domain.Entities;
+using ApiEnderecos.Domain.Interfaces;
+using MediatR;
+
+namespace ApiEnderecos.Application.Handlers;
+
+public class CreateAddressCommandHandler : IRequestHandler<CreateAddressCommand, Guid>
+{
+    private readonly IAddressRepository _repository;
+
+    public CreateAddressCommandHandler(IAddressRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<Guid> Handle(CreateAddressCommand request, CancellationToken cancellationToken)
+    {
+        var existingAddress = await _repository.GetByDetailsAsync(request.Street, request.City, request.State, request.ZipCode);
+        if (existingAddress != null)
+        {
+            throw new InvalidOperationException("Address already exists.");
+        }
+
+        var address = new Address(request.Street, request.City, request.State, request.ZipCode);
+        await _repository.AddAsync(address);
+        return address.Id;
+    }
+}
+```
+
+### FILE: exemplos/api-enderecos/src/Application/Handlers/UpdateAddressCommandHandler.cs
+```csharp
+using ApiEnderecos.Application.Commands;
+using ApiEnderecos.Domain.Interfaces;
+using MediatR;
+
+namespace ApiEnderecos.Application.Handlers;
+
+public class UpdateAddressCommandHandler : IRequestHandler<UpdateAddressCommand>
+{
+    private readonly IAddressRepository _repository;
+
+    public UpdateAddressCommandHandler(IAddressRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<Unit> Handle(UpdateAddressCommand request, CancellationToken cancellationToken)
+    {
+        var address = await _repository.GetByIdAsync(request.Id);
+        if (address == null)
+        {
+            throw new KeyNotFoundException("Address not found.");
+        }
+
+        address.Update(request.Street, request.City, request.State, request.ZipCode);
+        await _repository.UpdateAsync(address);
+
+        return Unit.Value;
+    }
+}
+```
+
+### FILE: exemplos/api-enderecos/src/Application/Handlers/DeleteAddressCommandHandler.cs
+```csharp
+using ApiEnderecos.Application.Commands;
+using ApiEnderecos.Domain.Interfaces;
+using MediatR;
+
+namespace ApiEnderecos.Application.Handlers;
+
+public class DeleteAddressCommandHandler : IRequestHandler<DeleteAddressCommand>
+{
+    private readonly IAddressRepository _repository;
+
+    public DeleteAddressCommandHandler(IAddressRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<Unit> Handle(DeleteAddressCommand request, CancellationToken cancellationToken)
+    {
+        var address = await _repository.GetByIdAsync(request.Id);
+        if (address == null)
+        {
+            throw new KeyNotFoundException("Address not found.");
+        }
+
+        await _repository.DeleteAsync(address);
+        return Unit.Value;
+    }
+}
+```
+
+### FILE: exemplos/api-enderecos/src/Application/Handlers/GetAddressByIdQueryHandler.cs
+```csharp
+using ApiEnderecos.Application.DTOs;
+using ApiEnderecos.Application.Queries;
+using ApiEnderecos.Domain.Interfaces;
+using MediatR;
+
+namespace ApiEnderecos.Application.Handlers;
+
+public class GetAddressByIdQueryHandler : IRequestHandler<GetAddressByIdQuery, AddressDto>
+{
+    private readonly IAddressRepository _repository;
+
+    public GetAddressByIdQueryHandler(IAddressRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<AddressDto> Handle(GetAddressByIdQuery request, CancellationToken cancellationToken)
+    {
+        var address = await _repository.GetByIdAsync(request.Id);
+        if (address == null)
+        {
+            throw new KeyNotFoundException("Address not found.");
+        }
+
+        return new AddressDto(address.Id, address.Street, address.City, address.State, address.ZipCode);
+    }
+}
+```
+
+### FILE: exemplos/api-enderecos/src/Application/Handlers/GetAllAddressesQueryHandler.cs
+```csharp
+using ApiEnderecos.Application.DTOs;
+using ApiEnderecos.Application.Queries;
+using ApiEnderecos.Domain.Interfaces;
+using MediatR;
+
+namespace ApiEnderecos.Application.Handlers;
+
+public class GetAllAddressesQueryHandler : IRequestHandler<GetAllAddressesQuery, IEnumerable<AddressDto>>
+{
+    private readonly IAddressRepository _repository;
+
+    public GetAllAddressesQueryHandler(IAddressRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<IEnumerable<AddressDto>> Handle(GetAllAddressesQuery request, CancellationToken cancellationToken)
+    {
+        var addresses = await _repository.GetAllAsync();
+        return addresses.Select(a => new AddressDto(a.Id, a.Street, a.City, a.State, a.ZipCode));
+    }
+}
+```
+
+### FILE: exemplos/api-enderecos/src/Infrastructure/Persistence/AddressRepository.cs
+```csharp
+using ApiEnderecos.Domain.Entities;
+using ApiEnderecos.Domain.Interfaces;
+using Microsoft.EntityFrameworkCore;
+
+namespace ApiEnderecos.Infrastructure.Persistence;
+
+public class AddressRepository : IAddressRepository
+{
+    private readonly AddressDbContext _context;
+
+    public AddressRepository(AddressDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<Address?> GetByIdAsync(Guid id)
+    {
+        return await _context.Addresses.FindAsync(id);
+    }
+
+    public async Task<Address?> GetByDetailsAsync(string street, string city, string state, string zipCode)
+    {
+        return await _context.Addresses
+            .FirstOrDefaultAsync(a => a.Street == street && a.City == city && a.State == state && a.ZipCode == zipCode);
+    }
+
+    public async Task<IEnumerable<Address>> GetAllAsync()
+    {
+        return await _context.Addresses.ToListAsync();
+    }
+
+    public async Task AddAsync(Address address)
+    {
+        await _context.Addresses.AddAsync(address);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task UpdateAsync(Address address)
+    {
+        _context.Addresses.Update(address);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(Address address)
+    {
+        _context.Addresses.Remove(address);
+        await _context.SaveChangesAsync();
+    }
+}
+```
+
+### FILE: exemplos/api-enderecos/src/Infrastructure/Persistence/AddressDbContext.cs
+```csharp
+using ApiEnderecos.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace ApiEnderecos.Infrastructure.Persistence;
+
+public class AddressDbContext : DbContext
+{
+    public DbSet<Address> Addresses { get; set; }
+
+    public AddressDbContext(DbContextOptions<AddressDbContext> options) : base(options) { }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Address>(entity =>
+        {
+            entity.HasKey(a => a.Id);
+            entity.Property(a => a.Street).IsRequired().HasMaxLength(255);
+            entity.Property(a => a.City).IsRequired().HasMaxLength(100);
+            entity.Property(a => a.State).IsRequired().HasMaxLength(50);
+            entity.Property(a => a.ZipCode).IsRequired().HasMaxLength(20);
+            entity.HasIndex(a => new { a.Street, a.City, a.State, a.ZipCode }).IsUnique();
+        });
+    }
+}
+```
+
+### FILE: exemplos/api-enderecos/src/API/Program.cs
+```csharp
+using ApiEnderecos.Application.Commands;
+using ApiEnderecos.Application.Queries;
+using ApiEnderecos.Infrastructure.Persistence;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<AddressDbContext>(options =>
+    options.UseInMemoryDatabase("AddressDb"));
+
+builder.Services.AddMediatR(typeof(CreateAddressCommand).Assembly);
+builder.Services.AddScoped<IAddressRepository, AddressRepository>();
+
+var app = builder.Build();
+
+app.MapPost("/addresses", async (CreateAddressCommand command, IMediator mediator) =>
+{
+    var id = await mediator.Send(command);
+    return Results.Created($"/addresses/{id}", id);
+});
+
+app.MapPut("/addresses/{id:guid}", async (Guid id, UpdateAddressCommand command, IMediator mediator) =>
+{
+    await mediator.Send(command with { Id = id });
+    return Results.NoContent();
+});
+
+app.MapDelete("/addresses/{id:guid}", async (Guid id, IMediator mediator) =>
+{
+    await mediator.Send(new DeleteAddressCommand(id));
+    return Results.NoContent();
+});
+
+app.MapGet("/addresses/{id:guid}", async (Guid id, IMediator mediator) =>
+{
+    var address = await mediator.Send(new GetAddressByIdQuery(id));
+    return Results.Ok(address);
+});
+
+app.MapGet("/addresses", async (IMediator mediator) =>
+{
+    var addresses = await mediator.Send(new GetAllAddressesQuery());
+    return Results.Ok(addresses);
+});
+
+app.Run();
+```
+
+### FILE: exemplos/api-enderecos/src/API/README.md
+```markdown
+# API de Endereços
+
+## Descrição
+
+Uma API para gerenciar endereços, incluindo operações de CRUD e validação para evitar endereços duplicados.
+
+## Endpoints
+
+- **POST /addresses**: Cria um novo endereço.
+- **PUT /addresses/{id}**: Atualiza um endereço existente.
+- **DELETE /addresses/{id}**: Remove um endereço.
+- **GET /addresses/{id}**: Obtém um endereço pelo ID.
+- **GET /addresses**: Lista todos os endereços.
+
+## Requisitos
+
+- .NET 8 SDK
+- Banco de dados em memória (configuração padrão)
+
+## Como executar
+
+1. Clone o repositório.
+2. Navegue até `exemplos/api-enderecos/src/API`.
+3. Execute `dotnet run`.
+4. Acesse os endpoints via Postman ou cURL.
+```
