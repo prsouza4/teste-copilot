@@ -91,25 +91,15 @@ jobs:
           echo "added=true" >> $GITHUB_OUTPUT
 
           # 3. Verifica se copilot-swe-agent está disponível e atribui
-          OWNER=$(echo "$REPO" | cut -d'/' -f1)
-          NAME=$(echo "$REPO" | cut -d'/' -f2)
-          AVAILABLE=$(gh api graphql -f query='
-            query($owner:String!, $name:String!) {
-              repository(owner:$owner, name:$name) {
-                suggestedActors(capabilities:[CAN_BE_ASSIGNED], first:100) {
-                  nodes { login }
-                }
-              }
-            }
-          ' -f owner="$OWNER" -f name="$NAME" \
-            --jq '.data.repository.suggestedActors.nodes[].login' \
-            | grep -c "copilot-swe-agent" || true)
-
-          if [ "$AVAILABLE" -gt "0" ]; then
-            gh issue edit "$ISSUE_NUMBER" --add-assignee copilot-swe-agent
+          # 3. Atribui ao copilot-swe-agent diretamente (sem verificação prévia)
+          if gh issue edit "$ISSUE_NUMBER" --add-assignee "copilot-swe-agent" 2>/dev/null; then
             echo "✅ Issue #$ISSUE_NUMBER atribuída ao copilot-swe-agent"
           else
-            echo "⚠️ copilot-swe-agent indisponível (plano Pro+/Business necessário)"
+            echo "⚠️ Não foi possível atribuir ao copilot-swe-agent (verifique plano e permissões)"
+            gh issue comment "$ISSUE_NUMBER" --body "## ⚠️ Copilot Coding Agent
+
+Não foi possível atribuir automaticamente ao \`copilot-swe-agent\`.
+Atribua manualmente na sidebar da issue se quiser que o Copilot Agent trabalhe nela." || true
           fi
 
       # ── 1. Triagem ────────────────────────────────────────────────────────
