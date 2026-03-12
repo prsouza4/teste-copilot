@@ -1,14 +1,20 @@
-# 🤖 Agentes de IA Especializados
+# 🤖 teste-copilot — Plataforma de Agentes de IA para Desenvolvimento
 
-> Sistema de agentes coordenados para workflows de desenvolvimento de software com GitHub Copilot.
+> Sistema completo de automação com **31 agentes especializados**, **6 skills**, **6 slash commands**, **hooks de sessão** e **workflows automáticos** — tudo coordenado pelo GitHub Copilot para .NET 10 + Next.js.
 
 ---
 
 ## 📋 Sobre o Projeto
 
-Este repositório contém um conjunto de **agentes de IA especializados** que trabalham de forma coordenada para auxiliar em todas as fases do desenvolvimento de software — da análise e planejamento à implementação, revisão e deploy.
+Este repositório é uma **plataforma de engenharia assistida por IA** que cobre todo o ciclo de vida do software:
 
-Cada agente é definido por um arquivo `.md` em `.github/agents/` e pode ser invocado diretamente pelo **GitHub Copilot CLI**, ou disparado automaticamente por **GitHub Actions** via eventos como abertura de issues e pull requests.
+- **Análise e planejamento** — triagem automática de issues, geração de PRDs, decomposição de tarefas
+- **Implementação** — agentes especializados em .NET 10 (Clean Architecture, CQRS, DDD), Next.js (App Router, shadcn/ui), containerização e mensageria
+- **Qualidade e revisão** — quality gate em PRs com análise paralela de segurança, QA e arquitetura
+- **Observabilidade** — instrumentação com OpenTelemetry, Serilog e health checks
+- **Experiência do desenvolvedor** — slash commands, skills reutilizáveis, hooks de sessão e rastreamento de trabalho
+
+Cada agente é definido em `.github/agents/` e pode ser **invocado pela CLI**, **acionado por GitHub Actions** automaticamente, ou **chamado via `#runSubagent`** no VS Code.
 
 ---
 
@@ -95,6 +101,80 @@ Cada agente é definido por um arquivo `.md` em `.github/agents/` e pode ser inv
 
 ---
 
+## 💬 Slash Commands (Copilot Chat)
+
+Comandos prontos acessíveis pelo ícone 📎 **Prompts** no Copilot Chat, ou digitando `#nome-do-prompt`:
+
+| Comando | Quando usar |
+|---------|-------------|
+| `#start-issue` | Iniciar qualquer trabalho novo — configura branch, verifica baseline, cria `work/` |
+| `#status` | Ver fase atual, tarefas restantes e próximo passo |
+| `#debug` | Depuração sistemática em 4 fases (reproduzir → isolar → identificar → corrigir) |
+| `#verify` | Checklist completo antes de abrir PR (testes, lint, requisitos) |
+| `#finish-branch` | Finalizar trabalho — merge local, criar PR, manter ou descartar |
+| `#summarize` | Salvar contexto da sessão para continuar depois ou fazer handoff |
+
+> **Como invocar:** No Copilot Chat, clique em **📎 → Prompts** e selecione o comando desejado.
+
+---
+
+## 🧠 Skills
+
+Skills são conhecimentos reutilizáveis que o Copilot aplica automaticamente quando o contexto é relevante:
+
+| Skill | O que ensina |
+|-------|--------------|
+| `test-driven-development` | Ciclo Red-Green-Refactor para .NET xUnit + Next.js Vitest |
+| `github-cli-workflow` | GitFlow completo — branch de `develop`, PRs, commits convencionais |
+| `subagent-driven-development` | Como executar planos com múltiplos agentes em paralelo |
+| `receiving-code-review` | Como tratar feedback de revisão de forma construtiva |
+| `requesting-code-review` | Como preparar e solicitar revisões eficazes |
+| `agent-activity-logger` | Como registrar atividade de agentes em `logs/copilot/` |
+
+---
+
+## 🔗 Hooks de Sessão
+
+Automações que rodam em eventos da sessão do Copilot CLI:
+
+| Hook | Evento | O que faz |
+|------|--------|-----------|
+| `session-auto-commit` | `Stop` | Faz commit automático de mudanças WIP ao fechar sessão (somente em branches `feature/` e `fix/`) |
+| `session-logger` | `SessionStart` | Registra início de sessão em `logs/copilot/agent-activity.log` |
+| `session-logger` | `Stop` | Registra fim de sessão e último commit |
+| `session-logger` | `UserPromptSubmit` | Registra excerpt de cada prompt enviado (primeiros 120 chars) |
+
+Logs ficam em `logs/copilot/agent-activity.log` (formato JSON por linha, gitignored).
+
+---
+
+## 🗂️ Rastreamento de Trabalho — `work/`
+
+Cada issue tem sua própria pasta local (nunca commitada):
+
+```
+work/
+└── ISSUE-042-login-rate-limiting/
+    ├── plan.md    ← Requisitos, pesquisa, plano de tarefas
+    └── result.md  ← Execução, testes, verificação, session notes
+```
+
+Criado automaticamente pelo `#start-issue`. Usado por `/status`, `/verify`, `/finish-branch` e `/summarize`.
+
+---
+
+## 🔧 Configuração de Ferramentas — `tool-sets.json`
+
+Define quais ferramentas cada tipo de agente pode usar:
+
+| Grupo | Ferramentas | Usado por |
+|-------|-------------|-----------|
+| `read-only` | search, codebase, problems | Exploração, análise, diagnóstico |
+| `full-dev` | + terminal, editFiles, changes | Implementação, debugging, hooks |
+| `review` | search, codebase, changes | Code review, QA, security |
+
+---
+
 ## 🚀 Como Usar
 
 ### Pré-requisitos
@@ -177,18 +257,32 @@ por categoria e faixa de preço, para encontrar rapidamente o que preciso.
 ## 📁 Estrutura do Repositório
 
 ```
-.github/
-├── agents/                     ← Definições dos agentes (.agent.md)
-│   ├── orchestrator.agent.md
-│   ├── frontend.agent.md
-│   ├── backend.agent.md
-│   └── ...
-├── prompts/                    ← Templates de prompt por tarefa
-├── actions/
-│   └── ai-review/              ← Action reutilizável que invoca o Copilot CLI
-└── workflows/                  ← GitHub Actions (disparados por issues/PRs)
-    ├── ai-issue-triage.yml     ← Triagem automática de issues
-    └── ai-pr-quality-gate.yml  ← Quality gate em pull requests
+teste-copilot/
+├── .github/
+│   ├── agents/                     ← 31 agentes especializados (.agent.md)
+│   ├── prompts/                    ← 18 templates de prompt (6 slash commands + quality gates + triage)
+│   ├── skills/                     ← 6 skills reutilizáveis (TDD, GitFlow, code review, logging)
+│   ├── instructions/               ← 5 instruções contextuais automáticas por tipo de arquivo
+│   ├── hooks/
+│   │   ├── session-auto-commit/    ← Auto-commit WIP ao fechar sessão (.sh + .ps1)
+│   │   └── session-logger/         ← Log de sessão e prompts (.sh + .ps1)
+│   ├── workflows/                  ← 4 pipelines GitHub Actions automáticos
+│   ├── actions/                    ← 4 GitHub Actions compostas reutilizáveis
+│   ├── scripts/                    ← 6 scripts Python para processamento de output dos agentes
+│   ├── ISSUE_TEMPLATE/             ← 6 templates de issues (bug, feature, hotfix por contexto)
+│   ├── copilot-instructions.md     ← Configuração mestre do Copilot
+│   ├── copilot-code-review.md      ← Diretrizes de code review
+│   ├── tool-sets.json              ← 3 grupos de ferramentas por tipo de agente
+│   ├── labeler.yml                 ← Auto-labeling de PRs por contexto
+│   └── PULL_REQUEST_TEMPLATE.md    ← Template padrão de PR
+├── .vscode/
+│   └── settings.json               ← Integração VS Code (prompt picker, instruction files)
+├── work/                           ← Rastreamento local de issues (gitignored)
+│   └── ISSUE-xxx-nome/
+│       ├── plan.md
+│       └── result.md
+├── .gitignore                      ← Ignora logs/, work/, bin/, node_modules/, etc.
+└── README.md
 ```
 
 ---
@@ -292,19 +386,16 @@ parse_feature_review.py    ← processa output de revisão de features
 
 ### 📝 `.github/ISSUE_TEMPLATE/`
 
-**O que é:** Templates para criação de issues no GitHub.
-
-**Para que serve:** Garante que issues abertas contenham informações suficientes para o agente de triagem funcionar bem. Um template bem preenchido resulta em melhor categorização, labels mais precisas e PRDs mais completos.
+Templates para criação de issues no GitHub — garante informações suficientes para o agente de triagem funcionar bem:
 
 ```
-drift-alert.md  ← template para reportar divergências entre agentes e implementação
+bug-backend.md       ← Bug em API/serviço .NET
+bug-frontend.md      ← Bug em componente Next.js
+feature-backend.md   ← Nova feature de API ou domínio
+feature-frontend.md  ← Nova tela ou componente
+feature-infra.md     ← Infra, pipelines, containers
+hotfix.md            ← Correção urgente em produção
 ```
-
----
-
-### 🔍 `.github/codeql/`
-
-> ⚠️ **Removido neste template.** O diretório `codeql/` com análise estática foi removido para simplificar o projeto. Se necessário, pode ser adicionado ao repositório seguindo a [documentação oficial do CodeQL](https://docs.github.com/en/code-security/code-scanning/creating-an-advanced-setup-for-code-scanning/customizing-your-advanced-setup-for-code-scanning).
 
 ---
 
@@ -312,67 +403,102 @@ drift-alert.md  ← template para reportar divergências entre agentes e impleme
 
 | Arquivo | Para que serve |
 |---------|----------------|
-| `copilot-instructions.md` | Instrui o Copilot sobre qual agente chamar e quando delegar |
-| `copilot-code-review.md` | Diretrizes específicas para o Copilot ao revisar código |
-| `labeler.yml` | Regras de auto-labeling de PRs baseadas nos arquivos alterados |
+| `copilot-instructions.md` | Configuração mestre — delegação de agentes, GitFlow, protocolo de sessão |
+| `copilot-code-review.md` | Diretrizes de code review — máx. 20 comentários, alta confiança apenas |
+| `tool-sets.json` | 3 grupos de ferramentas: `read-only`, `full-dev`, `review` |
+| `labeler.yml` | Auto-labeling de PRs por arquivos alterados e conventional commits |
 | `PULL_REQUEST_TEMPLATE.md` | Template padrão para descrição de PRs |
 
 ---
 
 ## 🔄 Como os Agentes Trabalham Juntos
 
-### Fluxo automático para microsserviços
+### Fluxo de desenvolvimento (desenvolvedor local)
 
-Quando você pede para criar um microsserviço, o orquestrador aciona automaticamente os agentes de infraestrutura, mensageria e observabilidade — sem que você precise especificar cada um:
+```
+1. #start-issue "implementar rate limiting no login"
+   ├─► Cria branch feature/ISSUE-042-login-rate-limiting a partir de develop
+   ├─► Verifica baseline (dotnet test + npm test)
+   └─► Cria work/ISSUE-042-login-rate-limiting/{plan.md, result.md}
+
+2. Desenvolve com TDD
+   ├─► Skill TDD: Red (teste falha) → Green (implementa) → Refactor
+   └─► Skill GitHub CLI: commits convencionais, sync com origin
+
+3. #verify → checklist de testes + lint + requisitos
+
+4. #finish-branch → cria PR apontando para develop
+```
+
+### Fluxo automático para microsserviços
 
 ```
 Você pede:
   "Crie o microsserviço de Pedidos com CQRS e DDD"
 
 O orquestrador delega em sequência:
-  ├─► backend  → Domain, CQRS handlers, API controllers
-  ├─► infra           → Dockerfile, docker-compose, manifesto K8s
-  ├─► messaging       → Contrato OrderPlaced, Outbox Pattern, Consumer
-  └─► observability   → OpenTelemetry, Serilog, health checks, métricas
+  ├─► backend      → Domain, CQRS handlers, API controllers (.NET 10)
+  ├─► infra        → Dockerfile multi-stage, docker-compose, manifesto K8s
+  ├─► messaging    → Contrato OrderPlaced, Outbox Pattern, Consumer (MassTransit)
+  └─► observability → OpenTelemetry, Serilog, health checks /ready + /live
 ```
 
-### Fluxo de Issue
+### Fluxo automático de Issue (GitHub Actions)
 
 ```
-Issue criada
+Issue criada no GitHub
     │
-    ├─► Analista      → categoriza, aplica labels
-    ├─► Roadmap       → alinha ao milestone
-    └─► Explicador    → gera PRD (se complexo)
-```
-
-### Fluxo de PR
-
-```
-PR aberto
+    ├─► ai-issue-triage.yml
+    │       ├─► analyst    → categoriza, aplica labels (priority, area, type)
+    │       ├─► roadmap    → alinha ao milestone correto
+    │       └─► explainer  → gera PRD (se issue complexa)
     │
-    ├─► Revisor de Código  → verifica boas práticas
-    ├─► Segurança          → detecta vulnerabilidades
-    ├─► QA                 → valida cobertura de testes
-    └─► Crítico            → aprova ou bloqueia o merge
+    └─► Comentário de triagem postado na issue automaticamente
 ```
 
-### Fluxo de tarefa complexa (via CLI)
+### Fluxo automático de PR (GitHub Actions)
 
 ```
-copilot --agent orchestrator --allow-all -p "..."
+PR aberto → develop
     │
-    └─► Orquestrador
-            ├─► Analista       → pesquisa e contexto
-            ├─► Arquiteto      → design da solução
-            ├─► Frontend       → implementação UI
-            ├─► Backend .NET   → implementação API
-            ├─► Infra          → Docker, K8s
-            ├─► Messaging      → eventos e Sagas
-            ├─► Observability  → traces, métricas, logs
-            ├─► QA             → testes
-            └─► Segurança      → revisão de segurança
+    ├─► ai-pr-quality-gate.yml (agentes rodam em paralelo)
+    │       ├─► security   → detecta vulnerabilidades OWASP
+    │       ├─► qa         → valida cobertura de testes
+    │       └─► architect  → verifica aderência arquitetural
+    │
+    ├─► ai-pr-auto-assign.yml → auto-assign por contexto (backend/frontend/infra)
+    └─► ai-pr-description.yml → gera descrição se PR title < 50 chars
 ```
+
+### Fluxo de sessão (hooks automáticos)
+
+```
+SessionStart
+    └─► log-session-start.ps1 → registra início em logs/copilot/agent-activity.log
+
+UserPromptSubmit
+    └─► log-prompt.ps1 → registra excerpt do prompt
+
+Stop
+    ├─► auto-commit.ps1   → commit WIP automático (somente feature/fix branches)
+    └─► log-session-end.ps1 → registra fim e último commit
+```
+
+---
+
+## 📊 Resumo de Capacidades
+
+| Categoria | Quantidade | Detalhes |
+|-----------|-----------|---------|
+| Agentes especializados | **31** | Orquestração, análise, implementação, infra, QA, segurança, memória |
+| Slash commands | **6** | start-issue, debug, verify, status, finish-branch, summarize |
+| Skills reutilizáveis | **6** | TDD, GitFlow, subagent, code review (2), activity logger |
+| Workflows automáticos | **4** | Issue triage, PR quality gate, PR auto-assign, PR description |
+| GitHub Actions compostas | **4** | ai-review, check-infra, setup-env, debounce |
+| Templates de issue | **6** | bug/feature para backend, frontend e infra + hotfix |
+| Hooks de sessão | **2 sistemas** | auto-commit + logger (SessionStart/Stop/UserPromptSubmit) |
+| Scripts Python | **6** | Parse, post, aggregate — lógica testável fora do YAML |
+| Instruções contextuais | **5** | testing, security, docs, claude-skills, agent-prompts |
 
 ---
 
