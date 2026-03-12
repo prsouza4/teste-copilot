@@ -5,13 +5,10 @@ name: "Copilot Setup Steps"
 # Referência: https://docs.github.com/en/copilot/customizing-copilot/customizing-the-development-environment-for-copilot-coding-agent
 
 on:
+  # O Copilot Coding Agent invoca este workflow automaticamente antes de
+  # iniciar qualquer sessão (quando uma issue é atribuída a ele via label "copilot").
+  # Os triggers abaixo são apenas para testes manuais.
   workflow_dispatch:
-  push:
-    paths:
-      - .github/workflows/copilot-setup-steps.yml
-  pull_request:
-    paths:
-      - .github/workflows/copilot-setup-steps.yml
 
 jobs:
   copilot-setup-steps:
