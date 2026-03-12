@@ -6,7 +6,7 @@ work/
 
 # MCP Servers — dependências locais (não commitar)
 mcp-servers/**/node_modules/
-mcp-servers/**/package-lock.json
+# mcp-servers/**/package-lock.json  ← lock files devem ser commitados
 
 # .NET
 bin/

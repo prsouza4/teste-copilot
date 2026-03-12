@@ -57,10 +57,14 @@ jobs:
       - name: 🔌 Instalar dependências dos servidores MCP
         run: |
           if [ -f "mcp-servers/nuget-mcp/package.json" ]; then
-            cd mcp-servers/nuget-mcp && npm ci
+            cd mcp-servers/nuget-mcp
+            if [ -f "package-lock.json" ]; then npm ci; else npm install; fi
+            cd ../..
           fi
           if [ -f "mcp-servers/npm-compat-mcp/package.json" ]; then
-            cd mcp-servers/npm-compat-mcp && npm ci
+            cd mcp-servers/npm-compat-mcp
+            if [ -f "package-lock.json" ]; then npm ci; else npm install; fi
+            cd ../..
           fi
 
       # ── Ferramentas de qualidade ───────────────────────────────────────────
