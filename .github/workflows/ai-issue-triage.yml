@@ -74,6 +74,17 @@ jobs:
           echo "agent=$AGENT" >> $GITHUB_OUTPUT
           echo "Agente detectado: $AGENT"
 
+      # ── 0b. Adicionar label copilot (Copilot Agent fará a implementação) ──
+      - name: 🏷️ Adicionar label copilot
+        id: add_copilot
+        if: github.event_name != 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh issue edit "$ISSUE_NUMBER" --add-label "copilot" 2>/dev/null || true
+          echo "added=true" >> $GITHUB_OUTPUT
+
       # ── 1. Triagem ────────────────────────────────────────────────────────
       - name: 📊 Triagem com GitHub Models API
         env:
@@ -133,7 +144,7 @@ jobs:
 
       # ── 2. Gerar código (apenas em opened/reopened, sem label 'copilot') ──────
       - name: 🤖 Gerar implementação — agente ${{ steps.issue.outputs.agent }}
-        if: github.event.action != 'edited' && !contains(github.event.issue.labels.*.name, 'copilot')
+        if: github.event.action != 'edited' && !contains(github.event.issue.labels.*.name, 'copilot') && steps.add_copilot.outputs.added != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           AGENT_NAME: ${{ steps.issue.outputs.agent }}
@@ -228,7 +239,7 @@ jobs:
 
       # ── 3. Criar branch, commitar e abrir PR (apenas em opened/reopened, sem label 'copilot') ───
       - name: 🌿 Criar branch e commitar arquivos gerados
-        if: github.event.action != 'edited' && !contains(github.event.issue.labels.*.name, 'copilot')
+        if: github.event.action != 'edited' && !contains(github.event.issue.labels.*.name, 'copilot') && steps.add_copilot.outputs.added != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
@@ -272,13 +283,13 @@ jobs:
 
       # ── 4. Setup .NET + Build + Test (apenas em opened/reopened, sem label 'copilot') ──────────
       - name: ⚙️ Setup .NET 10
-        if: github.event.action != 'edited' && !contains(github.event.issue.labels.*.name, 'copilot')
+        if: github.event.action != 'edited' && !contains(github.event.issue.labels.*.name, 'copilot') && steps.add_copilot.outputs.added != 'true'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
 
       - name: 🔨 Build e testes
-        if: github.event.action != 'edited' && !contains(github.event.issue.labels.*.name, 'copilot')
+        if: github.event.action != 'edited' && !contains(github.event.issue.labels.*.name, 'copilot') && steps.add_copilot.outputs.added != 'true'
         id: build
         continue-on-error: true
         run: |
@@ -308,7 +319,7 @@ jobs:
       # ── 4.5. Auto-corrigir erros de build (self-healing) ──────────────────
       - name: 🔧 Auto-corrigir erros de build
         id: selfheal
-        if: github.event.action != 'edited' && !contains(github.event.issue.labels.*.name, 'copilot') && steps.build.outcome == 'failure'
+        if: github.event.action != 'edited' && !contains(github.event.issue.labels.*.name, 'copilot') && steps.add_copilot.outputs.added != 'true' && steps.build.outcome == 'failure'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -490,7 +501,7 @@ jobs:
 
       # ── 5. Abrir Pull Request (build passou ou foi auto-corrigido) ───────────
       - name: 🔀 Abrir Pull Request
-        if: github.event.action != 'edited' && !contains(github.event.issue.labels.*.name, 'copilot') && (steps.build.outcome == 'success' || steps.selfheal.outputs.healed == 'true')
+        if: github.event.action != 'edited' && !contains(github.event.issue.labels.*.name, 'copilot') && steps.add_copilot.outputs.added != 'true' && (steps.build.outcome == 'success' || steps.selfheal.outputs.healed == 'true')
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
@@ -554,7 +565,7 @@ jobs:
 
       # ── 6. Notificar na issue ─────────────────────────────────────────────
       - name: 💬 Comentar na issue
-        if: always() && github.event.action != 'edited' && !contains(github.event.issue.labels.*.name, 'copilot')
+        if: always() && github.event.action != 'edited' && !contains(github.event.issue.labels.*.name, 'copilot') && steps.add_copilot.outputs.added != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
