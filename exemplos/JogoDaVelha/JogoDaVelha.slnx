@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/JogoDaVelha.Application/JogoDaVelha.Application.csproj" />
+    <Project Path="src/JogoDaVelha.Console/JogoDaVelha.Console.csproj" />
+    <Project Path="src/JogoDaVelha.Domain/JogoDaVelha.Domain.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/JogoDaVelha.Tests/JogoDaVelha.Tests.csproj" />
+  </Folder>
+</Solution>
