@@ -102,13 +102,10 @@ jobs:
           gh issue comment "${{ github.event.issue.number }}" \
             --body-file triage_comment.txt
 
-      - name: 🤖 Acionar Copilot Coding Agent
+      - name: 🏷️ Adicionar label implement para acionar geração de código
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
         run: |
-          gh issue comment "${{ github.event.issue.number }}" --body "@copilot Implemente esta issue conforme a triagem acima.
-
-          Título: ${ISSUE_TITLE}
-
-          Siga as instruções em \`.github/copilot-instructions.md\` e use o agente especializado adequado para esta tarefa."
+          gh issue edit "${{ github.event.issue.number }}" --add-label "implement" \
+            && echo "✅ Label 'implement' adicionado — AI Implement Issue vai disparar" \
+            || echo "⚠️ Label 'implement' não existe ainda — crie em Settings → Labels"
