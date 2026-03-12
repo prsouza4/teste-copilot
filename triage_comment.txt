@@ -1,0 +1,7 @@
+## Triagem Automatica
+
+- **Categoria:** enhancement
+- **Prioridade:** P2=medio
+- **Labels sugeridas:** jogo, backend, melhorias
+- **Resumo:** Criação de uma aplicação de jogo de pedra, papel e tesoura como uma melhoria no sistema backend, com critérios de aceitação definidos.
+- **Proximo passo:** Avaliar a viabilidade da implementação e criar um plano de desenvolvimento.
