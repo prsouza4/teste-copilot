@@ -1,0 +1,7 @@
+## Triagem Automatica
+
+- **Categoria:** backend
+- **Prioridade:** P2
+- **Labels sugeridas:** api, cadastros, backend
+- **Resumo:** Criar uma API para gerenciar o cadastro de endereços, incluindo funcionalidades de CRUD e evitando endereços duplicados.
+- **Proximo passo:** Analisar os requisitos técnicos e implementar a API conforme os critérios de aceitação.

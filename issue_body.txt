@@ -1,0 +1,16 @@
+## 📋 Descrição
+
+Uma api de endereços
+
+## 🎯 Problema que resolve
+
+Cadastrar endereços
+
+## ✅ Critérios de Aceitação
+
+- [ ]  Crud de endereços
+- [ ] Não cadastrar endereços repetidos
+
+
+## 📎 Informações adicionais
+Criar dentro da pasta exemplos a api endereços
