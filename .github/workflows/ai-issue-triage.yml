@@ -147,7 +147,7 @@ jobs:
           )
 
           payload = {
-              "model": "gpt-4o",
+              "model": "claude-opus-4.5",
               "messages": [
                   {"role": "system", "content": agent_prompt + file_format},
                   {"role": "user",   "content": (
