@@ -353,8 +353,19 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
-          CSPROJ_PATH: ${{ steps.build.outputs.csproj_path }}
         run: |
+          # Re-encontrar csproj neste step (mais confiavel que depender do output anterior)
+          CSPROJ=$(find . -name "*.sln" ! -path "./_build_tmp/*" | head -1)
+          [ -z "$CSPROJ" ] && CSPROJ=$(find . -name "*.csproj" ! -path "./_build_tmp/*" | head -1)
+
+          if [ -z "$CSPROJ" ]; then
+            echo "Sem projeto .NET para auto-corrigir — pulando"
+            echo "healed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Projeto encontrado: $CSPROJ"
+          export CSPROJ_PATH="$CSPROJ"
           python3 << 'PYEOF'
           import json, urllib.request, urllib.error, os, re, subprocess, glob
 
