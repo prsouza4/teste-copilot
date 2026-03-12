@@ -282,7 +282,8 @@ jobs:
 
           if [ -n "$CSPROJ" ]; then
             echo "Stack detectada: .NET — $CSPROJ"
-            BUILD_LOG=$(dotnet build "$CSPROJ" --no-incremental 2>&1) && BUILD_STATUS="passed" || BUILD_STATUS="failed"
+            dotnet restore "$CSPROJ"
+            BUILD_LOG=$(dotnet build "$CSPROJ" --no-restore --no-incremental 2>&1) && BUILD_STATUS="passed" || BUILD_STATUS="failed"
             echo "$BUILD_LOG"
             if [ "$BUILD_STATUS" = "passed" ]; then
               TEST_LOG=$(dotnet test "$CSPROJ" --no-build --logger "console;verbosity=normal" 2>&1) && TEST_STATUS="passed" || TEST_STATUS="failed"
