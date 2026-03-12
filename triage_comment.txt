@@ -1,0 +1,7 @@
+## Triagem Automatica
+
+- **Categoria:** enhancement
+- **Prioridade:** P2
+- **Labels sugeridas:** api, backend, enhancement
+- **Resumo:** Solicitação para criação de uma API de endereços que possibilite o cadastro e controle de endereços, evitando a duplicação. Inclui a implementação de um CRUD.
+- **Proximo passo:** Avaliar os requisitos e planejar a implementação da API conforme os critérios de aceitação.
