@@ -246,28 +246,117 @@ jobs:
           git push origin "$BRANCH"
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
 
-      # ── 4. Abrir Pull Request ─────────────────────────────────────────────
+      # ── 4. Build + Test ───────────────────────────────────────────────────
+      - name: 🔨 Build e testes
+        id: build
+        continue-on-error: true
+        run: |
+          BUILD_STATUS="skipped"
+          TEST_STATUS="skipped"
+          BUILD_LOG=""
+          TEST_LOG=""
+
+          # .NET
+          if find . -name "*.csproj" -o -name "*.sln" | grep -q .; then
+            echo "Stack detectada: .NET"
+            BUILD_LOG=$(dotnet build --no-incremental 2>&1) && BUILD_STATUS="passed" || BUILD_STATUS="failed"
+            echo "$BUILD_LOG"
+            if [ "$BUILD_STATUS" = "passed" ]; then
+              TEST_LOG=$(dotnet test --no-build --logger "console;verbosity=normal" 2>&1) && TEST_STATUS="passed" || TEST_STATUS="failed"
+              echo "$TEST_LOG"
+            fi
+
+          # Node / frontend
+          elif [ -f "package.json" ]; then
+            echo "Stack detectada: Node.js"
+            BUILD_LOG=$(npm ci && npm run build 2>&1) && BUILD_STATUS="passed" || BUILD_STATUS="failed"
+            echo "$BUILD_LOG"
+            if [ "$BUILD_STATUS" = "passed" ] && grep -q '"test"' package.json; then
+              TEST_LOG=$(npm test -- --passWithNoTests 2>&1) && TEST_STATUS="passed" || TEST_STATUS="failed"
+              echo "$TEST_LOG"
+            fi
+
+          # Python
+          elif find . -name "requirements*.txt" | grep -q .; then
+            echo "Stack detectada: Python"
+            pip install -r requirements.txt -q
+            BUILD_STATUS="passed"
+            if find . -name "test_*.py" -o -name "*_test.py" | grep -q .; then
+              TEST_LOG=$(python -m pytest --tb=short 2>&1) && TEST_STATUS="passed" || TEST_STATUS="failed"
+              echo "$TEST_LOG"
+            fi
+
+          else
+            echo "Nenhum stack de build detectado — pulando"
+          fi
+
+          # Salvar resultado para usar no PR
+          echo "build_status=$BUILD_STATUS" >> $GITHUB_OUTPUT
+          echo "test_status=$TEST_STATUS"   >> $GITHUB_OUTPUT
+
+          # Salvar logs resumidos (max 3000 chars)
+          echo "$BUILD_LOG" | tail -c 3000 > build_log.txt
+          echo "$TEST_LOG"  | tail -c 3000 > test_log.txt
+
+          # Falhar o step se build ou test falharam
+          if [ "$BUILD_STATUS" = "failed" ] || [ "$TEST_STATUS" = "failed" ]; then
+            exit 1
+          fi
+
+      # ── 5. Abrir Pull Request ─────────────────────────────────────────────
       - name: 🔀 Abrir Pull Request
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
           AGENT_NAME: ${{ steps.issue.outputs.agent }}
           ISSUE_TITLE: ${{ steps.issue.outputs.title }}
+          BUILD_STATUS: ${{ steps.build.outputs.build_status }}
+          TEST_STATUS: ${{ steps.build.outputs.test_status }}
         run: |
+          BUILD_BADGE="⚠️ não executado"
+          TEST_BADGE="⚠️ não executado"
+          [ "$BUILD_STATUS" = "passed"  ] && BUILD_BADGE="✅ passou"
+          [ "$BUILD_STATUS" = "failed"  ] && BUILD_BADGE="❌ falhou"
+          [ "$BUILD_STATUS" = "skipped" ] && BUILD_BADGE="⏭️ pulado (stack não detectado)"
+          [ "$TEST_STATUS"  = "passed"  ] && TEST_BADGE="✅ passou"
+          [ "$TEST_STATUS"  = "failed"  ] && TEST_BADGE="❌ falhou"
+          [ "$TEST_STATUS"  = "skipped" ] && TEST_BADGE="⏭️ pulado"
+
+          BUILD_LOG=$(cat build_log.txt 2>/dev/null || echo "")
+          TEST_LOG=$(cat test_log.txt   2>/dev/null || echo "")
+          BUILD_SECTION=""
+          TEST_SECTION=""
+          [ -n "$BUILD_LOG" ] && BUILD_SECTION="
+          <details><summary>Log do build</summary>
+
+          \`\`\`
+          $BUILD_LOG
+          \`\`\`
+          </details>"
+          [ -n "$TEST_LOG" ] && TEST_SECTION="
+          <details><summary>Log dos testes</summary>
+
+          \`\`\`
+          $TEST_LOG
+          \`\`\`
+          </details>"
+
           gh pr create \
             --title "feat: ${ISSUE_TITLE}" \
             --body "## Implementacao gerada pelo agente \`${AGENT_NAME}\`
 
-          Esta PR foi gerada automaticamente pelo agente **\`${AGENT_NAME}\`**
-          usando o \`.github/agents/${AGENT_NAME}.agent.md\` como system prompt
-          e **GitHub Models API (gpt-4o)** para geracao do codigo.
+          Agente: **\`${AGENT_NAME}\`** | Issue: #${ISSUE_NUMBER}
 
-          **Issue:** #${ISSUE_NUMBER} -- ${ISSUE_TITLE}
+          ### Resultado do CI
+          | Etapa  | Status |
+          |--------|--------|
+          | Build  | ${BUILD_BADGE} |
+          | Testes | ${TEST_BADGE} |
+          ${BUILD_SECTION}${TEST_SECTION}
 
           ### Revisao necessaria
           - Verifique os arquivos gerados
-          - Execute os testes localmente
-          - Ajuste conforme necessario antes do merge
+          - Corrija eventuais erros de build/test antes do merge
 
           Closes #${ISSUE_NUMBER}
 
@@ -276,22 +365,30 @@ jobs:
             --base develop \
             --head "$BRANCH"
 
-      # ── 5. Notificar na issue ─────────────────────────────────────────────
+      # ── 6. Notificar na issue ─────────────────────────────────────────────
       - name: 💬 Comentar na issue
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
           AGENT_NAME: ${{ steps.issue.outputs.agent }}
+          BUILD_STATUS: ${{ steps.build.outputs.build_status }}
+          TEST_STATUS: ${{ steps.build.outputs.test_status }}
         run: |
+          BUILD_LINE="- **Build:** ${BUILD_STATUS}"
+          TEST_LINE="- **Testes:** ${TEST_STATUS}"
+          [ "$BUILD_STATUS" = "passed"  ] && BUILD_LINE="- **Build:** ✅ passou"
+          [ "$BUILD_STATUS" = "failed"  ] && BUILD_LINE="- **Build:** ❌ falhou — verifique o PR"
+          [ "$BUILD_STATUS" = "skipped" ] && BUILD_LINE="- **Build:** ⏭️ pulado (stack nao detectado)"
+          [ "$TEST_STATUS"  = "passed"  ] && TEST_LINE="- **Testes:** ✅ passaram"
+          [ "$TEST_STATUS"  = "failed"  ] && TEST_LINE="- **Testes:** ❌ falharam — verifique o PR"
+          [ "$TEST_STATUS"  = "skipped" ] && TEST_LINE="- **Testes:** ⏭️ pulados"
+
           gh issue comment "$ISSUE_NUMBER" \
             --body "## Implementacao concluida
 
-          O agente **\`${AGENT_NAME}\`** gerou a implementacao e abriu um PR automaticamente.
+          O agente **\`${AGENT_NAME}\`** gerou a implementacao e abriu um PR.
 
-          Proximos passos:
-          1. Revise os arquivos no PR
-          2. Execute os testes
-          3. Faca ajustes se necessario
-          4. Faca o merge quando aprovado
+          ${BUILD_LINE}
+          ${TEST_LINE}
 
-          Os workflows de revisao (Security, QA, Architect) vao rodar automaticamente no PR."
+          Revise o PR antes de fazer merge."
