@@ -286,18 +286,18 @@ jobs:
             # Patch: AI frequentemente inventa versoes de pacotes que nao existem
             # Substitui versoes especificas por * (ultima disponivel no NuGet)
             python3 << 'PYEOF'
-import re, glob
-for csproj in glob.glob('**/*.csproj', recursive=True):
-    if '_build_tmp' in csproj:
-        continue
-    with open(csproj) as f:
-        content = f.read()
-    patched = re.sub(r'(<PackageReference\s[^>]*Version=")[^"]*(")', r'\1*\2', content)
-    if patched != content:
-        with open(csproj, 'w') as f:
-            f.write(patched)
-        print("Versoes de pacotes corrigidas para *: " + csproj)
-PYEOF
+            import re, glob
+            for csproj in glob.glob('**/*.csproj', recursive=True):
+                if '_build_tmp' in csproj:
+                    continue
+                with open(csproj) as f:
+                    content = f.read()
+                patched = re.sub(r'(<PackageReference[^>]*Version=")[^"]*(")', r'\g<1>*\g<2>', content)
+                if patched != content:
+                    with open(csproj, 'w') as f:
+                        f.write(patched)
+                    print("Versoes corrigidas para *: " + csproj)
+            PYEOF
 
             dotnet restore "$CSPROJ"
             BUILD_LOG=$(dotnet build "$CSPROJ" --no-restore --no-incremental 2>&1) && BUILD_STATUS="passed" || BUILD_STATUS="failed"
@@ -354,8 +354,9 @@ PYEOF
             exit 1
           fi
 
-      # ── 5. Abrir Pull Request ─────────────────────────────────────────────
+      # ── 5. Abrir Pull Request (somente se build passou ou foi pulado) ────────
       - name: 🔀 Abrir Pull Request
+        if: steps.build.outcome == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
@@ -418,24 +419,44 @@ PYEOF
 
       # ── 6. Notificar na issue ─────────────────────────────────────────────
       - name: 💬 Comentar na issue
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
           AGENT_NAME: ${{ steps.issue.outputs.agent }}
           BUILD_STATUS: ${{ steps.build.outputs.build_status }}
           TEST_STATUS: ${{ steps.build.outputs.test_status }}
+          BUILD_OUTCOME: ${{ steps.build.outcome }}
         run: |
-          BUILD_LINE="- **Build:** ${BUILD_STATUS}"
-          TEST_LINE="- **Testes:** ${TEST_STATUS}"
+          BUILD_LINE="- **Build:** ⏭️ pulado (stack nao detectado)"
+          TEST_LINE="- **Testes:** ⏭️ pulados"
           [ "$BUILD_STATUS" = "passed"  ] && BUILD_LINE="- **Build:** ✅ passou"
-          [ "$BUILD_STATUS" = "failed"  ] && BUILD_LINE="- **Build:** ❌ falhou — verifique o PR"
-          [ "$BUILD_STATUS" = "skipped" ] && BUILD_LINE="- **Build:** ⏭️ pulado (stack nao detectado)"
+          [ "$BUILD_STATUS" = "failed"  ] && BUILD_LINE="- **Build:** ❌ falhou"
           [ "$TEST_STATUS"  = "passed"  ] && TEST_LINE="- **Testes:** ✅ passaram"
-          [ "$TEST_STATUS"  = "failed"  ] && TEST_LINE="- **Testes:** ❌ falharam — verifique o PR"
-          [ "$TEST_STATUS"  = "skipped" ] && TEST_LINE="- **Testes:** ⏭️ pulados"
+          [ "$TEST_STATUS"  = "failed"  ] && TEST_LINE="- **Testes:** ❌ falharam"
 
-          gh issue comment "$ISSUE_NUMBER" \
-            --body "## Implementacao concluida
+          if [ "$BUILD_OUTCOME" = "failure" ]; then
+            BUILD_LOG=$(cat build_log.txt 2>/dev/null | tail -c 2000 || echo "")
+            gh issue comment "$ISSUE_NUMBER" \
+              --body "## ❌ Build falhou — PR nao foi aberto
+
+          O agente **\`${AGENT_NAME}\`** gerou o codigo mas o build falhou.
+          O PR **nao foi criado** ate que o codigo compile.
+
+          ${BUILD_LINE}
+          ${TEST_LINE}
+
+          <details><summary>Log do build (ultimas 2000 chars)</summary>
+
+          \`\`\`
+          ${BUILD_LOG}
+          \`\`\`
+          </details>
+
+          Verifique o branch \`${BRANCH}\` e corrija os erros manualmente."
+          else
+            gh issue comment "$ISSUE_NUMBER" \
+              --body "## ✅ Implementacao concluida
 
           O agente **\`${AGENT_NAME}\`** gerou a implementacao e abriu um PR.
 
@@ -443,3 +464,4 @@ PYEOF
           ${TEST_LINE}
 
           Revise o PR antes de fazer merge."
+          fi
