@@ -74,16 +74,43 @@ jobs:
           echo "agent=$AGENT" >> $GITHUB_OUTPUT
           echo "Agente detectado: $AGENT"
 
-      # ── 0b. Adicionar label copilot (Copilot Agent fará a implementação) ──
-      - name: 🏷️ Adicionar label copilot
+      # ── 0b. Adicionar label copilot + atribuir ao Copilot Agent ────────────
+      - name: 🏷️ Adicionar label copilot e atribuir ao Copilot Agent
         id: add_copilot
         if: github.event_name != 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
         run: |
-          gh issue edit "$ISSUE_NUMBER" --add-label "copilot" 2>/dev/null || true
+          # 1. Garante que o label existe
+          gh label create "copilot" --color "0075ca" --description "Para o Copilot Coding Agent" 2>/dev/null || true
+
+          # 2. Adiciona label (idempotente — não falha se já existir)
+          gh issue edit "$ISSUE_NUMBER" --add-label "copilot" || true
           echo "added=true" >> $GITHUB_OUTPUT
+
+          # 3. Verifica se copilot-swe-agent está disponível e atribui
+          OWNER=$(echo "$REPO" | cut -d'/' -f1)
+          NAME=$(echo "$REPO" | cut -d'/' -f2)
+          AVAILABLE=$(gh api graphql -f query='
+            query($owner:String!, $name:String!) {
+              repository(owner:$owner, name:$name) {
+                suggestedActors(capabilities:[CAN_BE_ASSIGNED], first:100) {
+                  nodes { login }
+                }
+              }
+            }
+          ' -f owner="$OWNER" -f name="$NAME" \
+            --jq '.data.repository.suggestedActors.nodes[].login' \
+            | grep -c "copilot-swe-agent" || true)
+
+          if [ "$AVAILABLE" -gt "0" ]; then
+            gh issue edit "$ISSUE_NUMBER" --add-assignee copilot-swe-agent
+            echo "✅ Issue #$ISSUE_NUMBER atribuída ao copilot-swe-agent"
+          else
+            echo "⚠️ copilot-swe-agent indisponível (plano Pro+/Business necessário)"
+          fi
 
       # ── 1. Triagem ────────────────────────────────────────────────────────
       - name: 📊 Triagem com GitHub Models API

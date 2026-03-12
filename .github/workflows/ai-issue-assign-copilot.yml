@@ -28,6 +28,8 @@ jobs:
     if: github.event.label.name == 'copilot'
 
     steps:
+      - uses: actions/checkout@v4
+
       - name: 🤖 Verificar disponibilidade do Copilot Agent
         id: check
         env:
