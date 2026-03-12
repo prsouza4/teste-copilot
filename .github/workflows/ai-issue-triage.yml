@@ -171,17 +171,11 @@ jobs:
               "4. Generate all files needed: source code, tests, README.\n"
               "5. Use real, complete, production-ready code — not placeholders.\n"
               "6. If generating .NET/C# code, you MUST include:\n"
-              "   - A .csproj file for EACH project (with correct SDK and PackageReferences)\n"
-              "   - A .sln file that includes ALL projects (source AND test)\n"
-              "   - Use .NET 10 (net10.0) by default. NEVER use .NET 8 or .NET 9.\n"
-              "   - CRITICAL: Test projects (.Tests.csproj) MUST have <ProjectReference> tags\n"
-              "     pointing to every project they reference. Example:\n"
-              "     <ItemGroup>\n"
-              "       <ProjectReference Include=\"../MyApp.Domain/MyApp.Domain.csproj\" />\n"
-              "       <ProjectReference Include=\"../MyApp.Application/MyApp.Application.csproj\" />\n"
-              "     </ItemGroup>\n"
-              "   - Every <using> statement in a test file MUST have a matching <ProjectReference>\n"
-              "     in that test project's .csproj. Missing references = build failure.\n\n"
+              "   - A .csproj for EACH project (with correct SDK and PackageReferences)\n"
+              "   - A .sln that includes ALL projects — source AND test. No exceptions.\n"
+              "   - Use .NET 10 (net10.0). NEVER .NET 8 or .NET 9.\n"
+              "   - Test .csproj MUST have <ProjectReference> to every project it uses.\n"
+              "   - Every <using> in test code needs a matching <ProjectReference>.\n\n"
               "Begin now with ### FILE:"
           )
 
@@ -274,113 +268,38 @@ jobs:
           git push origin "$BRANCH"
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
 
-      # ── 4. Build + Test ───────────────────────────────────────────────────
+      # ── 4. Setup .NET + Build + Test ──────────────────────────────────────
+      - name: ⚙️ Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
       - name: 🔨 Build e testes
         id: build
         continue-on-error: true
         run: |
-          BUILD_STATUS="skipped"
-          TEST_STATUS="skipped"
-          BUILD_LOG=""
-          TEST_LOG=""
+          SLN=$(find . -name "*.sln" ! -path "./_build_tmp/*" | head -1)
+          [ -z "$SLN" ] && SLN=$(find . -name "*.csproj" ! -path "./_build_tmp/*" | head -1)
 
-          # .NET — detecta .csproj/.sln OU arquivos .cs
-          CSPROJ=$(find . -name "*.sln" ! -path "./_build_tmp/*" | head -1)
-          [ -z "$CSPROJ" ] && CSPROJ=$(find . -name "*.csproj" ! -path "./_build_tmp/*" | head -1)
-
-          # Patch: substitui versoes de pacotes por * (AI inventa versoes inexistentes)
-          find . -name "*.csproj" ! -path "./_build_tmp/*" \
-            -exec sed -i 's/Version="[^"]*"/Version="*"/g' {} \; 2>/dev/null || true
-
-          # Auto-fix: adicionar ProjectReferences faltantes nos projetos de teste
-          # (heredoc FORA de qualquer if-bash para evitar problema de indentacao YAML)
-          python3 << 'FIXEOF'
-          import glob, os, re
-          def skip(f): return "_build_tmp" in f or ".git" in f
-          def is_test(p): return bool(re.search(r'[Tt]est|[Ss]pec', os.path.basename(p)))
-          all_p  = [f for f in glob.glob("**/*.csproj", recursive=True) if not skip(f)]
-          mains  = [p for p in all_p if not is_test(p)]
-          tests  = [p for p in all_p if is_test(p)]
-          print("Main projects: " + str([os.path.basename(p) for p in mains]))
-          print("Test projects: " + str([os.path.basename(p) for p in tests]))
-          for tp in tests:
-              td = os.path.dirname(os.path.abspath(tp))
-              c  = open(tp).read()
-              added = []
-              for mp in mains:
-                  ma = os.path.abspath(mp)
-                  mn = os.path.basename(mp)
-                  if mn in c or os.path.basename(os.path.dirname(ma)) in c:
-                      continue
-                  rel = os.path.relpath(ma, td).replace("\\", "/")
-                  tag = '    <ProjectReference Include="' + rel + '" />'
-                  c = c.replace("<ItemGroup>", "<ItemGroup>\n" + tag, 1) if "<ItemGroup>" in c \
-                      else c.replace("</Project>", "  <ItemGroup>\n" + tag + "\n  </ItemGroup>\n</Project>")
-                  added.append(mn)
-              if added:
-                  open(tp, "w").write(c)
-                  print("FIXED " + tp + " -> " + str(added))
-          FIXEOF
-
-          if [ -n "$CSPROJ" ]; then
-            echo "Stack detectada: .NET — $CSPROJ"
-            dotnet restore "$CSPROJ"
-            BUILD_LOG=$(dotnet build "$CSPROJ" --no-restore --no-incremental 2>&1) && BUILD_STATUS="passed" || BUILD_STATUS="failed"
-            echo "$BUILD_LOG"
-            if [ "$BUILD_STATUS" = "passed" ]; then
-              TEST_LOG=$(dotnet test "$CSPROJ" --no-build --logger "console;verbosity=normal" 2>&1) && TEST_STATUS="passed" || TEST_STATUS="failed"
-              echo "$TEST_LOG"
-            fi
-
-          elif find . -name "*.cs" ! -path "./_build_tmp/*" | grep -q .; then
-            echo "Stack detectada: .NET (arquivos .cs sem .csproj — criando projeto minimo)"
-            mkdir -p _build_tmp
-            dotnet new classlib -n GeneratedCode -o _build_tmp/GeneratedCode --no-restore -f net8.0 2>/dev/null
-            find . -name "*.cs" ! -path "./_build_tmp/*" -exec cp {} _build_tmp/GeneratedCode/ \;
-            rm -f _build_tmp/GeneratedCode/Class1.cs
-            BUILD_LOG=$(dotnet build _build_tmp/GeneratedCode --no-restore 2>&1) && BUILD_STATUS="passed" || BUILD_STATUS="failed"
-            echo "$BUILD_LOG"
-            TEST_STATUS="skipped"
-
-          # Node / frontend
-          elif [ -f "package.json" ]; then
-            echo "Stack detectada: Node.js"
-            BUILD_LOG=$(npm ci && npm run build 2>&1) && BUILD_STATUS="passed" || BUILD_STATUS="failed"
-            echo "$BUILD_LOG"
-            if [ "$BUILD_STATUS" = "passed" ] && grep -q '"test"' package.json; then
-              TEST_LOG=$(npm test -- --passWithNoTests 2>&1) && TEST_STATUS="passed" || TEST_STATUS="failed"
-              echo "$TEST_LOG"
-            fi
-
-          # Python
-          elif find . -name "requirements*.txt" | grep -q .; then
-            echo "Stack detectada: Python"
-            pip install -r requirements.txt -q
-            BUILD_STATUS="passed"
-            if find . -name "test_*.py" -o -name "*_test.py" | grep -q .; then
-              TEST_LOG=$(python -m pytest --tb=short 2>&1) && TEST_STATUS="passed" || TEST_STATUS="failed"
-              echo "$TEST_LOG"
-            fi
-
-          else
-            echo "Nenhum stack de build detectado — pulando"
+          if [ -z "$SLN" ]; then
+            echo "build_status=skipped" >> $GITHUB_OUTPUT
+            echo "test_status=skipped"  >> $GITHUB_OUTPUT
+            exit 0
           fi
 
-          # Salvar resultado para usar no PR
-          echo "build_status=$BUILD_STATUS" >> $GITHUB_OUTPUT
-          echo "test_status=$TEST_STATUS"   >> $GITHUB_OUTPUT
+          echo "Solucao encontrada: $SLN"
 
-          # Salvar csproj path para o step de self-healing
-          echo "csproj_path=$CSPROJ" >> $GITHUB_OUTPUT
+          dotnet restore "$SLN"
+          dotnet build   "$SLN" --no-restore && \
+            echo "build_status=passed" >> $GITHUB_OUTPUT || \
+            { echo "build_status=failed" >> $GITHUB_OUTPUT; exit 1; }
 
-          # Salvar logs resumidos (max 3000 chars)
-          echo "$BUILD_LOG" | tail -c 3000 > build_log.txt
-          echo "$TEST_LOG"  | tail -c 3000 > test_log.txt
+          dotnet test "$SLN" --no-build --verbosity normal && \
+            echo "test_status=passed" >> $GITHUB_OUTPUT || \
+            echo "test_status=failed" >> $GITHUB_OUTPUT
 
-          # Falhar o step se build ou test falharam
-          if [ "$BUILD_STATUS" = "failed" ] || [ "$TEST_STATUS" = "failed" ]; then
-            exit 1
-          fi
+          grep -q "test_status=failed" $GITHUB_OUTPUT && exit 1 || exit 0
+
 
       # ── 4.5. Auto-corrigir erros de build (self-healing) ──────────────────
       - name: 🔧 Auto-corrigir erros de build
