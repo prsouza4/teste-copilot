@@ -1,0 +1,380 @@
+### FILE: exemplos/UserApi/src/Domain/Entities/User.cs
+```csharp
+namespace UserApi.Domain.Entities;
+
+public class User
+{
+    public Guid Id { get; private set; }
+    public string Name { get; private set; }
+    public string Email { get; private set; }
+
+    private User() { } // For EF Core
+
+    public User(string name, string email)
+    {
+        Id = Guid.NewGuid();
+        Name = name;
+        Email = email;
+    }
+
+    public void Update(string name, string email)
+    {
+        Name = name;
+        Email = email;
+    }
+}
+```
+
+---
+
+### FILE: exemplos/UserApi/src/Domain/Interfaces/IUserRepository.cs
+```csharp
+using UserApi.Domain.Entities;
+
+namespace UserApi.Domain.Interfaces;
+
+public interface IUserRepository
+{
+    Task<User?> GetByIdAsync(Guid id);
+    Task<IEnumerable<User>> GetAllAsync();
+    Task AddAsync(User user);
+    Task UpdateAsync(User user);
+    Task DeleteAsync(Guid id);
+}
+```
+
+---
+
+### FILE: exemplos/UserApi/src/Application/Users/Commands/CreateUserCommand.cs
+```csharp
+using MediatR;
+
+namespace UserApi.Application.Users.Commands;
+
+public record CreateUserCommand(string Name, string Email) : IRequest<Guid>;
+```
+
+---
+
+### FILE: exemplos/UserApi/src/Application/Users/Commands/CreateUserCommandHandler.cs
+```csharp
+using MediatR;
+using UserApi.Domain.Entities;
+using UserApi.Domain.Interfaces;
+
+namespace UserApi.Application.Users.Commands;
+
+public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Guid>
+{
+    private readonly IUserRepository _userRepository;
+
+    public CreateUserCommandHandler(IUserRepository userRepository)
+    {
+        _userRepository = userRepository;
+    }
+
+    public async Task<Guid> Handle(CreateUserCommand request, CancellationToken cancellationToken)
+    {
+        var user = new User(request.Name, request.Email);
+        await _userRepository.AddAsync(user);
+        return user.Id;
+    }
+}
+```
+
+---
+
+### FILE: exemplos/UserApi/src/Application/Users/Queries/GetUserByIdQuery.cs
+```csharp
+using MediatR;
+
+namespace UserApi.Application.Users.Queries;
+
+public record GetUserByIdQuery(Guid Id) : IRequest<UserDto>;
+
+public record UserDto(Guid Id, string Name, string Email);
+```
+
+---
+
+### FILE: exemplos/UserApi/src/Application/Users/Queries/GetUserByIdQueryHandler.cs
+```csharp
+using MediatR;
+using UserApi.Domain.Interfaces;
+
+namespace UserApi.Application.Users.Queries;
+
+public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, UserDto>
+{
+    private readonly IUserRepository _userRepository;
+
+    public GetUserByIdQueryHandler(IUserRepository userRepository)
+    {
+        _userRepository = userRepository;
+    }
+
+    public async Task<UserDto> Handle(GetUserByIdQuery request, CancellationToken cancellationToken)
+    {
+        var user = await _userRepository.GetByIdAsync(request.Id);
+        if (user == null)
+        {
+            throw new KeyNotFoundException($"User with ID {request.Id} not found.");
+        }
+
+        return new UserDto(user.Id, user.Name, user.Email);
+    }
+}
+```
+
+---
+
+### FILE: exemplos/UserApi/src/Infrastructure/Persistence/UserRepository.cs
+```csharp
+using Microsoft.EntityFrameworkCore;
+using UserApi.Domain.Entities;
+using UserApi.Domain.Interfaces;
+
+namespace UserApi.Infrastructure.Persistence;
+
+public class UserRepository : IUserRepository
+{
+    private readonly UserDbContext _context;
+
+    public UserRepository(UserDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<User?> GetByIdAsync(Guid id)
+    {
+        return await _context.Users.FindAsync(id);
+    }
+
+    public async Task<IEnumerable<User>> GetAllAsync()
+    {
+        return await _context.Users.ToListAsync();
+    }
+
+    public async Task AddAsync(User user)
+    {
+        await _context.Users.AddAsync(user);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task UpdateAsync(User user)
+    {
+        _context.Users.Update(user);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(Guid id)
+    {
+        var user = await GetByIdAsync(id);
+        if (user != null)
+        {
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+        }
+    }
+}
+```
+
+---
+
+### FILE: exemplos/UserApi/src/Infrastructure/Persistence/UserDbContext.cs
+```csharp
+using Microsoft.EntityFrameworkCore;
+using UserApi.Domain.Entities;
+
+namespace UserApi.Infrastructure.Persistence;
+
+public class UserDbContext : DbContext
+{
+    public DbSet<User> Users { get; set; }
+
+    public UserDbContext(DbContextOptions<UserDbContext> options) : base(options) { }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(u => u.Id);
+            entity.Property(u => u.Name).IsRequired().HasMaxLength(100);
+            entity.Property(u => u.Email).IsRequired().HasMaxLength(100);
+        });
+    }
+}
+```
+
+---
+
+### FILE: exemplos/UserApi/src/API/Program.cs
+```csharp
+using Microsoft.EntityFrameworkCore;
+using UserApi.Application.Users.Commands;
+using UserApi.Application.Users.Queries;
+using UserApi.Domain.Interfaces;
+using UserApi.Infrastructure.Persistence;
+using MediatR;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddDbContext<UserDbContext>(options =>
+    options.UseInMemoryDatabase("UserDb"));
+
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddMediatR(typeof(CreateUserCommandHandler).Assembly);
+
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
+
+app.Run();
+```
+
+---
+
+### FILE: exemplos/UserApi/src/API/Controllers/UserController.cs
+```csharp
+using MediatR;
+using Microsoft.AspNetCore.Mvc;
+using UserApi.Application.Users.Commands;
+using UserApi.Application.Users.Queries;
+
+namespace UserApi.API.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class UserController : ControllerBase
+{
+    private readonly IMediator _mediator;
+
+    public UserController(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] CreateUserCommand command)
+    {
+        var userId = await _mediator.Send(command);
+        return CreatedAtAction(nameof(GetById), new { id = userId }, userId);
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> GetById(Guid id)
+    {
+        var user = await _mediator.Send(new GetUserByIdQuery(id));
+        return Ok(user);
+    }
+}
+```
+
+---
+
+### FILE: exemplos/UserApi/src/API/appsettings.json
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+```
+
+---
+
+### FILE: exemplos/UserApi/README.md
+```markdown
+# User API
+
+A simple user management API built with .NET 10, following Clean Architecture and DDD principles.
+
+## Features
+
+- Create a user
+- Retrieve user by ID
+
+## Technologies
+
+- .NET 10
+- ASP.NET Core
+- Entity Framework Core (In-Memory Database)
+- MediatR (CQRS)
+- Clean Architecture
+- SOLID Principles
+
+## How to Run
+
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd exemplos/UserApi
+   ```
+
+2. Build the project:
+   ```bash
+   dotnet build
+   ```
+
+3. Run the API:
+   ```bash
+   dotnet run --project src/API
+   ```
+
+4. Access Swagger UI:
+   Open your browser and navigate to `https://localhost:5001/swagger`.
+
+## Endpoints
+
+### Create User
+**POST** `/api/User`
+
+Request Body:
+```json
+{
+  "name": "John Doe",
+  "email": "john.doe@example.com"
+}
+```
+
+Response:
+```json
+{
+  "id": "generated-user-id"
+}
+```
+
+### Get User by ID
+**GET** `/api/User/{id}`
+
+Response:
+```json
+{
+  "id": "user-id",
+  "name": "John Doe",
+  "email": "john.doe@example.com"
+}
+```
+```
+
+This implementation follows the requested requirements: .NET 10, SOLID principles, DDD, and Clean Architecture. The project is placed under the `exemplos/` folder as requested. Let me know if you need further assistance!
