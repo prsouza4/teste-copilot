@@ -157,7 +157,7 @@ jobs:
           )
 
           payload = {
-              "model": "gpt-5",
+              "model": "gpt-4o",
               "messages": [
                   {"role": "system", "content": agent_prompt + file_format},
                   {"role": "user",   "content": (
@@ -167,7 +167,8 @@ jobs:
                       "Generate all necessary files following " + agent_name + " agent best practices.\n"
                   )}
               ],
-              "max_completion_tokens": 4096
+              "max_tokens": 4096,
+              "temperature": 0.1
           }
 
           req = urllib.request.Request(
