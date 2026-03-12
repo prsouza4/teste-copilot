@@ -94,8 +94,7 @@ jobs:
                   {"role": "system", "content": system_prompt},
                   {"role": "user",   "content": "Titulo: " + title + "\n\nDescricao:\n" + body}
               ],
-              "max_completion_tokens": 500,
-              "temperature": 0.2
+              "max_completion_tokens": 500
           }
 
           req = urllib.request.Request(
@@ -168,8 +167,7 @@ jobs:
                       "Generate all necessary files following " + agent_name + " agent best practices.\n"
                   )}
               ],
-              "max_completion_tokens": 4096,
-              "temperature": 0.1
+              "max_completion_tokens": 4096
           }
 
           req = urllib.request.Request(
