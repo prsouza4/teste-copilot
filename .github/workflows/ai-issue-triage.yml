@@ -288,57 +288,42 @@ jobs:
           CSPROJ=$(find . -name "*.sln" ! -path "./_build_tmp/*" | head -1)
           [ -z "$CSPROJ" ] && CSPROJ=$(find . -name "*.csproj" ! -path "./_build_tmp/*" | head -1)
 
+          # Patch: substitui versoes de pacotes por * (AI inventa versoes inexistentes)
+          find . -name "*.csproj" ! -path "./_build_tmp/*" \
+            -exec sed -i 's/Version="[^"]*"/Version="*"/g' {} \; 2>/dev/null || true
+
+          # Auto-fix: adicionar ProjectReferences faltantes nos projetos de teste
+          # (heredoc FORA de qualquer if-bash para evitar problema de indentacao YAML)
+          python3 << 'FIXEOF'
+          import glob, os, re
+          def skip(f): return "_build_tmp" in f or ".git" in f
+          def is_test(p): return bool(re.search(r'[Tt]est|[Ss]pec', os.path.basename(p)))
+          all_p  = [f for f in glob.glob("**/*.csproj", recursive=True) if not skip(f)]
+          mains  = [p for p in all_p if not is_test(p)]
+          tests  = [p for p in all_p if is_test(p)]
+          print("Main projects: " + str([os.path.basename(p) for p in mains]))
+          print("Test projects: " + str([os.path.basename(p) for p in tests]))
+          for tp in tests:
+              td = os.path.dirname(os.path.abspath(tp))
+              c  = open(tp).read()
+              added = []
+              for mp in mains:
+                  ma = os.path.abspath(mp)
+                  mn = os.path.basename(mp)
+                  if mn in c or os.path.basename(os.path.dirname(ma)) in c:
+                      continue
+                  rel = os.path.relpath(ma, td).replace("\\", "/")
+                  tag = '    <ProjectReference Include="' + rel + '" />'
+                  c = c.replace("<ItemGroup>", "<ItemGroup>\n" + tag, 1) if "<ItemGroup>" in c \
+                      else c.replace("</Project>", "  <ItemGroup>\n" + tag + "\n  </ItemGroup>\n</Project>")
+                  added.append(mn)
+              if added:
+                  open(tp, "w").write(c)
+                  print("FIXED " + tp + " -> " + str(added))
+          FIXEOF
+
           if [ -n "$CSPROJ" ]; then
             echo "Stack detectada: .NET — $CSPROJ"
-
-            # Patch: substitui versoes de pacotes por * (AI inventa versoes inexistentes)
-            find . -name "*.csproj" ! -path "./_build_tmp/*" \
-              -exec sed -i 's/Version="[^"]*"/Version="*"/g' {} \;
-            echo "Versoes de PackageReference corrigidas para *"
-
-            # Auto-fix: garantir ProjectReferences em projetos de teste
-            python3 << 'FIXEOF'
-            import glob, os, re
-
-            def find_all_csproj():
-                return [f for f in glob.glob("**/*.csproj", recursive=True)
-                        if "_build_tmp" not in f and ".git" not in f]
-
-            def is_test_project(path):
-                return bool(re.search(r'[Tt]est|[Ss]pec', os.path.basename(path)))
-
-            all_projs = find_all_csproj()
-            main_projs = [p for p in all_projs if not is_test_project(p)]
-            test_projs = [p for p in all_projs if is_test_project(p)]
-
-            print("Projetos principais: " + str([os.path.basename(p) for p in main_projs]))
-            print("Projetos de teste:   " + str([os.path.basename(p) for p in test_projs]))
-
-            for test_path in test_projs:
-                test_dir = os.path.dirname(os.path.abspath(test_path))
-                content = open(test_path).read()
-                added = []
-                for main_path in main_projs:
-                    main_abs = os.path.abspath(main_path)
-                    main_name = os.path.basename(main_path)
-                    if main_name in content or os.path.basename(os.path.dirname(main_abs)) in content:
-                        continue
-                    rel = os.path.relpath(main_abs, test_dir).replace("\\", "/")
-                    ref_tag = '    <ProjectReference Include="' + rel + '" />'
-                    if "<ItemGroup>" in content:
-                        content = content.replace("<ItemGroup>", "<ItemGroup>\n" + ref_tag, 1)
-                    else:
-                        content = content.replace("</Project>",
-                            "  <ItemGroup>\n" + ref_tag + "\n  </ItemGroup>\n</Project>")
-                    added.append(main_name)
-                if added:
-                    with open(test_path, "w") as f:
-                        f.write(content)
-                    print("FIXED " + test_path + " -> adicionado: " + str(added))
-                else:
-                    print("OK " + test_path + " (referencias ja existem)")
-            FIXEOF
-
             dotnet restore "$CSPROJ"
             BUILD_LOG=$(dotnet build "$CSPROJ" --no-restore --no-incremental 2>&1) && BUILD_STATUS="passed" || BUILD_STATUS="failed"
             echo "$BUILD_LOG"
