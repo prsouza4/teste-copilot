@@ -6,7 +6,7 @@ name: AI Issue Pipeline
 
 on:
   issues:
-    types: [opened, reopened]
+    types: [opened, reopened, edited]
   workflow_dispatch:
     inputs:
       issue_number:
@@ -131,8 +131,9 @@ jobs:
         run: |
           gh issue comment "$ISSUE_NUMBER" --body-file triage_comment.txt
 
-      # ── 2. Gerar código ───────────────────────────────────────────────────
+      # ── 2. Gerar código (apenas em opened/reopened, não em edited) ──────────
       - name: 🤖 Gerar implementação — agente ${{ steps.issue.outputs.agent }}
+        if: github.event.action != 'edited'
         env:
           GH_TOKEN: ${{ github.token }}
           AGENT_NAME: ${{ steps.issue.outputs.agent }}
@@ -225,8 +226,9 @@ jobs:
               f.write(content)
           PYEOF
 
-      # ── 3. Criar branch, commitar e abrir PR ─────────────────────────────
+      # ── 3. Criar branch, commitar e abrir PR (apenas em opened/reopened) ───
       - name: 🌿 Criar branch e commitar arquivos gerados
+        if: github.event.action != 'edited'
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
@@ -268,13 +270,15 @@ jobs:
           git push origin "$BRANCH"
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
 
-      # ── 4. Setup .NET + Build + Test ──────────────────────────────────────
+      # ── 4. Setup .NET + Build + Test (apenas em opened/reopened) ────────────
       - name: ⚙️ Setup .NET 10
+        if: github.event.action != 'edited'
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
 
       - name: 🔨 Build e testes
+        if: github.event.action != 'edited'
         id: build
         continue-on-error: true
         run: |
@@ -304,7 +308,7 @@ jobs:
       # ── 4.5. Auto-corrigir erros de build (self-healing) ──────────────────
       - name: 🔧 Auto-corrigir erros de build
         id: selfheal
-        if: steps.build.outcome == 'failure'
+        if: github.event.action != 'edited' && steps.build.outcome == 'failure'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -486,7 +490,7 @@ jobs:
 
       # ── 5. Abrir Pull Request (build passou ou foi auto-corrigido) ───────────
       - name: 🔀 Abrir Pull Request
-        if: steps.build.outcome == 'success' || steps.selfheal.outputs.healed == 'true'
+        if: github.event.action != 'edited' && (steps.build.outcome == 'success' || steps.selfheal.outputs.healed == 'true')
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
@@ -550,7 +554,7 @@ jobs:
 
       # ── 6. Notificar na issue ─────────────────────────────────────────────
       - name: 💬 Comentar na issue
-        if: always()
+        if: always() && github.event.action != 'edited'
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
