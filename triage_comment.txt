@@ -1,7 +1,7 @@
 ## Triagem Automatica
 
-- **Categoria:** enhancement
-- **Prioridade:** P2=medio
-- **Labels sugeridas:** jogo, backend, enhancement
-- **Resumo:** Criação de um jogo de pedra, papel e tesoura como uma nova funcionalidade no backend. O jogo deve seguir regras específicas de interação entre os itens.
-- **Proximo passo:** Avaliar a implementação das regras e criar um plano de desenvolvimento.
+- **Categoria:** backend
+- **Prioridade:** P2
+- **Labels sugeridas:** api, addresses, enhancement
+- **Resumo:** Necessidade de uma API para gerenciar endereços, incluindo funcionalidades de CRUD e restrição para não permitir endereços duplicados. 
+- **Proximo passo:** Criar uma proposta de implementação da API e definir as especificações técnicas.
