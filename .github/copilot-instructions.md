@@ -194,4 +194,64 @@ Each file contains: route, authentication, request/response schema, validation r
 
 ---
 
+## Pre-PR Validation Gate (OBRIGATÓRIO para Copilot Coding Agent)
+
+Antes de abrir qualquer Pull Request, execute **obrigatoriamente** a sequência abaixo.
+**Não abra o PR se qualquer etapa falhar.**
+
+### Backend (.NET 10)
+
+Se existir qualquer arquivo `.csproj` ou `.sln` no repositório:
+
+```bash
+dotnet restore
+dotnet build --no-restore --configuration Release
+dotnet test --no-build --configuration Release --logger "console;verbosity=normal"
+```
+
+Regras:
+- `dotnet restore` deve ter **0 erros**
+- `dotnet build` deve ter **0 erros** (warnings são aceitos)
+- `dotnet test` deve ter **0 falhas** (skipped são aceitos)
+- Se não houver projeto de testes, documente no PR body: `⚠️ Sem projeto de testes — cobertura pendente`
+
+### Frontend (Next.js / Node.js)
+
+Se existir `package.json` com script `build`:
+
+```bash
+npm ci              # ou pnpm install
+npm run build       # deve completar sem erro
+npm run lint        # se existir o script
+npm test            # se existir o script (não interativo: CI=true npm test)
+```
+
+Regras:
+- Build deve completar com **exit code 0**
+- Erros de TypeScript são **bloqueantes**
+- Warnings de lint são aceitos, erros são **bloqueantes**
+
+### Formato obrigatório no PR body
+
+O PR deve incluir a seção:
+
+```markdown
+## ✅ Validação Pré-PR
+
+| Etapa | Status |
+|-------|--------|
+| `dotnet restore` | ✅ OK / ❌ FALHOU |
+| `dotnet build` | ✅ OK / ❌ FALHOU |
+| `dotnet test` | ✅ X passed, Y skipped / ❌ Z failed |
+| `npm run build` | ✅ OK / ❌ FALHOU / ⏭️ N/A |
+```
+
+### Quando a validação falha
+
+1. **Corrija o código** — não abra PR com build quebrado
+2. Se não conseguir corrigir após 2 tentativas, **comente na issue** descrevendo o erro e aguarde orientação
+3. **Nunca** force push para contornar uma validação falha
+
+---
+
 **For complete documentation, workflows, examples, and best practices, see [AGENTS.md](../AGENTS.md).**
