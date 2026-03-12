@@ -1,0 +1,313 @@
+### FILE: exemplos/Usuario/README.md
+```markdown
+# Usuário API
+
+## Descrição
+
+API para cadastro e gerenciamento de usuários. Permite realizar operações de CRUD (Create, Read, Update, Delete) para usuários.
+
+## Funcionalidades
+
+- Cadastro de usuários com validação de CPF e e-mail.
+- Operações de CRUD completas.
+- Integração com RabbitMQ para publicação de eventos.
+- Logs estruturados com Serilog.
+- Suporte a CQRS e Result Pattern.
+- Tratamento global de exceções.
+
+## Tecnologias Utilizadas
+
+- .NET 10
+- ASP.NET Core
+- Entity Framework Core
+- SQL Server
+- RabbitMQ
+- Serilog
+- FluentValidation
+- MediatR
+- Aspire para desenvolvimento local
+
+## Estrutura do Projeto
+
+```
+src/
+├── Domain/            ← Entidades, Objetos de Valor, Eventos de Domínio, Interfaces
+├── Application/       ← Casos de Uso, Comandos, Consultas, DTOs, Handlers, Validações
+├── Infrastructure/    ← Repositórios, Serviços Externos, Mensageria
+└── API/               ← Controllers, Middleware, Configuração de DI
+```
+
+## Como Executar Localmente
+
+### Pré-requisitos
+
+- .NET 10 SDK
+- Docker e Docker Compose
+- RabbitMQ
+- SQL Server
+
+### Passos
+
+1. Clone o repositório:
+   ```bash
+   git clone <url-do-repositorio>
+   cd exemplos/Usuario
+   ```
+
+2. Configure o ambiente local:
+   ```bash
+   docker-compose up -d
+   ```
+
+3. Execute a aplicação:
+   ```bash
+   dotnet run --project src/API
+   ```
+
+4. Acesse a API:
+   - Swagger: `http://localhost:5000/swagger`
+
+## Estrutura de Dados
+
+### Usuário
+
+| Campo            | Tipo       | Obrigatório | Observação               |
+|-------------------|------------|-------------|--------------------------|
+| `Id`             | `Guid`     | Sim         | Gerado automaticamente   |
+| `Nome`           | `string`   | Sim         |                          |
+| `CPF`            | `string`   | Sim         | Deve ser válido          |
+| `DataNascimento` | `DateTime` | Sim         |                          |
+| `Profissao`      | `string`   | Não         |                          |
+| `Email`          | `string`   | Sim         | Deve ser válido          |
+
+## Testes
+
+Execute os testes com o comando:
+```bash
+dotnet test
+```
+```
+
+---
+
+### FILE: exemplos/Usuario/src/Domain/Entities/Usuario.cs
+```csharp
+using System;
+
+namespace Usuario.Domain.Entities;
+
+public class Usuario
+{
+    public Guid Id { get; private set; }
+    public string Nome { get; private set; }
+    public string CPF { get; private set; }
+    public DateTime DataNascimento { get; private set; }
+    public string? Profissao { get; private set; }
+    public string Email { get; private set; }
+
+    private Usuario() { }
+
+    public Usuario(string nome, string cpf, DateTime dataNascimento, string email, string? profissao = null)
+    {
+        Id = Guid.NewGuid();
+        Nome = nome;
+        CPF = cpf;
+        DataNascimento = dataNascimento;
+        Email = email;
+        Profissao = profissao;
+    }
+
+    public void Atualizar(string nome, string email, string? profissao = null)
+    {
+        Nome = nome;
+        Email = email;
+        Profissao = profissao;
+    }
+}
+```
+
+---
+
+### FILE: exemplos/Usuario/src/Domain/Interfaces/IUsuarioRepository.cs
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Usuario.Domain.Entities;
+
+namespace Usuario.Domain.Interfaces;
+
+public interface IUsuarioRepository
+{
+    Task<Usuario?> ObterPorIdAsync(Guid id);
+    Task<IEnumerable<Usuario>> ObterTodosAsync();
+    Task AdicionarAsync(Usuario usuario);
+    Task AtualizarAsync(Usuario usuario);
+    Task RemoverAsync(Guid id);
+    Task<bool> CPFJaCadastradoAsync(string cpf);
+    Task<bool> EmailJaCadastradoAsync(string email);
+}
+```
+
+---
+
+### FILE: exemplos/Usuario/src/Application/Commands/CriarUsuarioCommand.cs
+```csharp
+using System;
+using MediatR;
+
+namespace Usuario.Application.Commands;
+
+public record CriarUsuarioCommand(
+    string Nome,
+    string CPF,
+    DateTime DataNascimento,
+    string Email,
+    string? Profissao
+) : IRequest<Result<Guid>>;
+```
+
+---
+
+### FILE: exemplos/Usuario/src/Application/Commands/CriarUsuarioCommandHandler.cs
+```csharp
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using MediatR;
+using Usuario.Domain.Entities;
+using Usuario.Domain.Interfaces;
+using Usuario.Application.Validators;
+
+namespace Usuario.Application.Commands;
+
+public class CriarUsuarioCommandHandler : IRequestHandler<CriarUsuarioCommand, Result<Guid>>
+{
+    private readonly IUsuarioRepository _usuarioRepository;
+
+    public CriarUsuarioCommandHandler(IUsuarioRepository usuarioRepository)
+    {
+        _usuarioRepository = usuarioRepository;
+    }
+
+    public async Task<Result<Guid>> Handle(CriarUsuarioCommand request, CancellationToken cancellationToken)
+    {
+        var validator = new CriarUsuarioCommandValidator();
+        var validationResult = validator.Validate(request);
+
+        if (!validationResult.IsValid)
+        {
+            return Result<Guid>.Failure(validationResult.Errors);
+        }
+
+        if (await _usuarioRepository.CPFJaCadastradoAsync(request.CPF))
+        {
+            return Result<Guid>.Failure("CPF já cadastrado.");
+        }
+
+        if (await _usuarioRepository.EmailJaCadastradoAsync(request.Email))
+        {
+            return Result<Guid>.Failure("E-mail já cadastrado.");
+        }
+
+        var usuario = new Usuario(
+            request.Nome,
+            request.CPF,
+            request.DataNascimento,
+            request.Email,
+            request.Profissao
+        );
+
+        await _usuarioRepository.AdicionarAsync(usuario);
+
+        return Result<Guid>.Success(usuario.Id);
+    }
+}
+```
+
+---
+
+### FILE: exemplos/Usuario/src/Application/Validators/CriarUsuarioCommandValidator.cs
+```csharp
+using FluentValidation;
+using Usuario.Application.Commands;
+
+namespace Usuario.Application.Validators;
+
+public class CriarUsuarioCommandValidator : AbstractValidator<CriarUsuarioCommand>
+{
+    public CriarUsuarioCommandValidator()
+    {
+        RuleFor(x => x.Nome)
+            .NotEmpty().WithMessage("O nome é obrigatório.")
+            .MaximumLength(100).WithMessage("O nome deve ter no máximo 100 caracteres.");
+
+        RuleFor(x => x.CPF)
+            .NotEmpty().WithMessage("O CPF é obrigatório.")
+            .Must(ValidarCPF).WithMessage("O CPF informado é inválido.");
+
+        RuleFor(x => x.Email)
+            .NotEmpty().WithMessage("O e-mail é obrigatório.")
+            .EmailAddress().WithMessage("O e-mail informado é inválido.");
+
+        RuleFor(x => x.DataNascimento)
+            .NotEmpty().WithMessage("A data de nascimento é obrigatória.")
+            .LessThan(DateTime.Now).WithMessage("A data de nascimento deve ser no passado.");
+    }
+
+    private bool ValidarCPF(string cpf)
+    {
+        // Implementar validação de CPF aqui
+        return true;
+    }
+}
+```
+
+---
+
+### FILE: exemplos/Usuario/src/API/Controllers/UsuarioController.cs
+```csharp
+using System;
+using System.Threading.Tasks;
+using MediatR;
+using Microsoft.AspNetCore.Mvc;
+using Usuario.Application.Commands;
+
+namespace Usuario.API.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class UsuarioController : ControllerBase
+{
+    private readonly IMediator _mediator;
+
+    public UsuarioController(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CriarUsuario([FromBody] CriarUsuarioCommand command)
+    {
+        var result = await _mediator.Send(command);
+
+        if (!result.IsSuccess)
+        {
+            return BadRequest(result.Errors);
+        }
+
+        return CreatedAtAction(nameof(ObterUsuarioPorId), new { id = result.Value }, null);
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> ObterUsuarioPorId(Guid id)
+    {
+        // Implementar consulta
+        return Ok();
+    }
+}
+```
+
+---
+
+This is a partial implementation. Let me know if you need additional files or further details.

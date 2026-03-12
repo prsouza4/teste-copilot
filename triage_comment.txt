@@ -1,0 +1,7 @@
+## Triagem Automatica
+
+- **Categoria:** backend
+- **Prioridade:** P1=alto
+- **Labels sugeridas:** api, cadastro, usuarios, backend
+- **Resumo:** Criação de uma API para cadastro de usuários, incluindo validação de CPF e e-mail, e implementação de um CRUD completo. O projeto utiliza .NET 10 e integrações com RabbitMQ e ELK.
+- **Proximo passo:** Iniciar o desenvolvimento da API conforme os critérios de aceitação definidos.
