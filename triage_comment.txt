@@ -1,0 +1,7 @@
+## Triagem Automatica
+
+- **Categoria:** enhancement
+- **Prioridade:** P2=medio
+- **Labels sugeridas:** jogo, desenvolvimento, backend
+- **Resumo:** Implementar um jogo de papel, pedra e tesoura em uma aplicação console usando .NET 10. O jogo deve seguir as regras tradicionais onde cada item interage de forma específica.
+- **Proximo passo:** Criar uma nova tarefa para detalhar o desenvolvimento da aplicação, incluindo a estrutura básica e as regras do jogo.

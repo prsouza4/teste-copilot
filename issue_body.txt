@@ -1,0 +1,21 @@
+## 📋 Descrição
+
+Jogo papel tesoura
+
+## 🎯 Problema que resolve
+
+Crie um jogo papel tesoura e pedra
+
+## ✅ Critérios de Aceitação
+
+- [ ] Pedra amassa tesoura
+- [ ] Papel enrola pedra
+- [ ] Tesoura corta papel
+
+
+## 🧱 Contexto Técnico
+
+- **Padrão:** Use .net 10 aplicação console
+
+## 📎 Informações adicionais
+Crie a aplicação dentro da pasta exemplos
