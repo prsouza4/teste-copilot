@@ -22,7 +22,6 @@ jobs:
 
     if: |
       github.actor != 'dependabot[bot]' &&
-      github.actor != 'github-actions[bot]' &&
       github.actor != 'copilot-swe-agent[bot]'
 
     steps:

@@ -24,8 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: |
-      github.actor != 'dependabot[bot]' &&
-      github.actor != 'github-actions[bot]'
+      github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -102,8 +101,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: |
-      github.actor != 'dependabot[bot]' &&
-      github.actor != 'github-actions[bot]'
+      github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -183,8 +181,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: |
-      github.actor != 'dependabot[bot]' &&
-      github.actor != 'github-actions[bot]'
+      github.actor != 'dependabot[bot]'
     steps:
       - uses: actions/checkout@v4
         with:
