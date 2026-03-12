@@ -2,6 +2,59 @@
 
 > **IMPORTANT**: This file is intentionally minimal to reduce context window bloat. All detailed instructions are in AGENTS.md.
 
+## Pre-Execution Announcement (OBRIGATÓRIO)
+
+Antes de iniciar qualquer implementação, sempre anuncie:
+
+1. **Qual agente será usado** e por quê
+2. **O que será feito** em bullets
+3. **Quais arquivos serão criados/modificados**
+
+Formato obrigatório:
+
+```
+🤖 Agente selecionado: `backend`
+📋 Motivo: issue contém label `backend` e descreve uma API REST
+
+📝 Plano de execução:
+- Criar microsserviço Orders.API com Clean Architecture
+- Implementar Command PlaceOrderCommand + Handler
+- Criar endpoint POST /api/orders
+- Adicionar testes unitários
+
+📁 Arquivos que serão criados:
+- src/orders-api/Orders.API.csproj
+- src/orders-api/Program.cs
+- src/orders-api/Application/Commands/PlaceOrderCommand.cs
+- ...
+
+Iniciando implementação...
+```
+
+Isso vale para CLI local (escreva no terminal antes de agir) e para o Copilot Coding Agent (escreva como comentário na issue antes de abrir o PR).
+
+---
+
+
+
+Sempre seguir GitFlow. Regras obrigatórias:
+
+- **Branch base para features:** `develop` — NUNCA criar feature diretamente de `main`
+- **Nomenclatura de branches:** `feature/<numero-issue>-<descricao-curta>` (ex: `feature/42-api-usuarios`)
+- **Todo PR de feature** aponta para `develop`, não para `main`
+- **Hotfixes** apontam para `main` E `develop`
+- **Se a branch `develop` não existir:** crie-a a partir de `main` antes de criar a feature
+- **Se a branch de feature não existir:** crie-a automaticamente a partir de `develop`
+
+```
+main        ← produção
+develop     ← integração (base de toda feature)
+feature/X   ← implementação (criada a partir de develop)
+hotfix/X    ← correção urgente (criada a partir de main)
+```
+
+---
+
 ## Agent Delegation for Complex Tasks
 
 For tasks requiring multiple steps, specialized expertise, or extensive context, delegate using `#runSubagent` rather than handling everything inline:

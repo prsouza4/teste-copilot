@@ -1,0 +1,100 @@
+name: AI PR Auto-Assign
+
+# Detecta o contexto do PR (backend/frontend/infra) e sugere o agente revisor.
+# Usa GitHub Models API para analisar os arquivos alterados.
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  models: read
+
+jobs:
+  auto-assign:
+    name: Auto-Assign Reviewer
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: |
+      github.actor != 'dependabot[bot]' &&
+      github.actor != 'copilot-swe-agent[bot]'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🎯 Detectar contexto com GitHub Models API
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          FILES=$(gh pr view "$PR_NUMBER" --json files -q '.files[].path' | head -20 | tr '\n' ', ')
+
+          python3 << 'PYEOF'
+          import json, urllib.request, urllib.error, os
+
+          token  = os.environ["GH_TOKEN"]
+          number = os.environ["PR_NUMBER"]
+          title  = os.environ.get("PR_TITLE", "")
+          branch = os.environ.get("PR_BRANCH", "")
+          files  = os.environ.get("FILES", "")
+
+          system_prompt = """Você é um especialista em roteamento de PRs.
+          Analise os arquivos alterados e identifique a área principal do PR.
+          Responda SOMENTE com o bloco markdown abaixo preenchido — sem texto extra.
+
+          ## 🎯 Detecção de Contexto
+
+          **Área identificada:** <backend | frontend | infra | full-stack | docs>
+          **Agente recomendado para revisão local:** <backend | frontend | infra | observability | security>
+
+          ### Arquivos principais alterados
+          <liste os mais relevantes>
+
+          ### Para revisar este PR localmente
+          ```powershell
+          copilot --agent <agente> --allow-all -p "Revise o PR #PR_NUMBER: TITLE"
+          ```
+
+          > Use o comando acima para uma revisão detalhada com o agente especializado.
+          """
+
+          user_prompt = f"Título: {title}\nBranch: {branch}\nArquivos alterados: {files}"
+
+          payload = {
+              "model": "gpt-4o-mini",
+              "messages": [
+                  {"role": "system", "content": system_prompt.replace("PR_NUMBER", number).replace("TITLE", title)},
+                  {"role": "user",   "content": user_prompt}
+              ],
+              "max_tokens": 400,
+              "temperature": 0.1
+          }
+
+          req = urllib.request.Request(
+              "https://models.inference.ai.azure.com/chat/completions",
+              data=json.dumps(payload).encode(),
+              headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+          )
+
+          try:
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  comment = json.load(r)["choices"][0]["message"]["content"]
+          except urllib.error.HTTPError as e:
+              comment = f"## 🎯 Detecção de Contexto\n\n_Erro HTTP {e.code}: {e.read().decode()[:300]}_"
+
+          with open("assign_comment.txt", "w") as f:
+              f.write(comment)
+          print(comment)
+          PYEOF
+
+      - name: 💬 Postar sugestão de revisor no PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr comment "${{ github.event.pull_request.number }}" --body-file assign_comment.txt

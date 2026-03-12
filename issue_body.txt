@@ -1,0 +1,24 @@
+## 📋 Descrição
+
+Api de cadastros de usuários
+
+## 🎯 Problema que resolve
+
+Como usuário quer poder me cadastrar nome, id, cpf, data nascimento e profissão e-mail
+
+## ✅ Critérios de Aceitação
+
+- [ ] Cadastrar CPF válido, e-mail válido
+- [ ] Crud completo
+
+## 🧱 Contexto Técnico
+
+- **Microsserviço / Domínio:** Usuario
+- **Padrão:** CQRS, Result Pattern, Global exception
+- **Banco de dados:** Sql Server
+- **Integração:** RabbitMQ, filas, serilog, ELK
+- .NET 10
+- Usar Aspire para desenvolvimento local
+
+## 📎 Informações adicionais
+Criar dentro da pasta exemplos
