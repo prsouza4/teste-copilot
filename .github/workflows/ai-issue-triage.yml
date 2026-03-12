@@ -145,27 +145,28 @@ jobs:
           except FileNotFoundError:
               agent_prompt = "You are a " + agent_name + " development specialist."
 
-          file_format = (
-              "\n\n---\n## Output Format\n\n"
-              "For EVERY file you generate, use EXACTLY this format:\n\n"
-              "### FILE: relative/path/to/file.ext\n"
+          user_message = (
+              "Implement this GitHub issue by generating ALL necessary code files.\n\n"
+              "TITLE: " + issue_title + "\n\n"
+              "DESCRIPTION:\n" + issue_body + "\n\n"
+              "CRITICAL RULES — you MUST follow these exactly:\n"
+              "1. Output ONLY code files. No explanations, no prose, no comments outside files.\n"
+              "2. Every single file MUST use this exact format (no exceptions):\n\n"
+              "### FILE: path/to/file.ext\n"
               "```language\n"
-              "file content here\n"
+              "(file content here)\n"
               "```\n\n"
-              "Generate ALL necessary files for a complete, working implementation.\n"
-              "Include source code, unit tests, and a README if applicable.\n"
+              "3. Start your response immediately with the first ### FILE: line.\n"
+              "4. Generate all files needed: source code, tests, README.\n"
+              "5. Use real, complete, production-ready code — not placeholders.\n\n"
+              "Begin now with ### FILE:"
           )
 
           payload = {
               "model": "gpt-4o",
               "messages": [
-                  {"role": "system", "content": agent_prompt + file_format},
-                  {"role": "user",   "content": (
-                      "Implement the following GitHub issue:\n\n"
-                      "**Title:** " + issue_title + "\n\n"
-                      "**Description:**\n" + issue_body + "\n\n"
-                      "Generate all necessary files following " + agent_name + " agent best practices.\n"
-                  )}
+                  {"role": "system", "content": agent_prompt},
+                  {"role": "user",   "content": user_message}
               ],
               "max_tokens": 4096,
               "temperature": 0.1
@@ -186,10 +187,15 @@ jobs:
               print("Erro HTTP " + str(e.code) + ": " + err, file=sys.stderr)
               sys.exit(1)
 
-          files = re.findall(r'### FILE: (.+?)\n```(?:\w+)?\n(.*?)```', content, re.DOTALL)
+          print("=== RESPOSTA DO MODELO (primeiros 800 chars) ===")
+          print(content[:800])
+          print("================================================")
+
+          # Regex flexivel: aceita ### FILE: ou ## FILE: e qualquer linguagem
+          files = re.findall(r'#{2,3} FILE: (.+?)\r?\n```[\w]*\r?\n(.*?)```', content, re.DOTALL)
           if not files:
               files = [("IMPLEMENTATION_NOTES.md", content)]
-              print("Sem arquivos estruturados — salvando como notas")
+              print("AVISO: modelo nao usou o formato ### FILE: — salvando resposta bruta")
           else:
               print("Arquivos gerados: " + str(len(files)))
               for p, _ in files:
