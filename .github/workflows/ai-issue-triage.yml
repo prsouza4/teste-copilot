@@ -45,8 +45,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
         run: |
-          TITLE=$(gh issue view "$ISSUE_NUMBER" --json title -q '.title')
-          BODY=$(gh issue view  "$ISSUE_NUMBER" --json body  -q '.body')
+          # Retry até 5x com backoff — GitHub API pode retornar 502 logo após criar a issue
+          for i in 1 2 3 4 5; do
+            TITLE=$(gh issue view "$ISSUE_NUMBER" --json title -q '.title' 2>/dev/null) && break
+            echo "Tentativa $i falhou, aguardando ${i}0s..."
+            sleep $((i * 10))
+          done
+
+          if [ -z "$TITLE" ]; then
+            echo "Erro: nao foi possivel obter dados da issue apos 5 tentativas"
+            exit 1
+          fi
+
+          BODY=$(gh issue view   "$ISSUE_NUMBER" --json body   -q '.body')
           LABELS=$(gh issue view "$ISSUE_NUMBER" --json labels -q '.labels[].name' | tr '\n' ',')
 
           echo "title=$TITLE"   >> $GITHUB_OUTPUT
