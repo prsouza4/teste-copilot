@@ -1,0 +1,336 @@
+### FILE: exemplos/api.enderecos/EnderecoApi.sln
+```plaintext
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnderecoApi.Domain", "EnderecoApi.Domain\EnderecoApi.Domain.csproj", "{A1B2C3D4-E5F6-7890-1234-56789ABCDEF0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnderecoApi.Application", "EnderecoApi.Application\EnderecoApi.Application.csproj", "{B1C2D3E4-F5A6-7890-1234-56789ABCDEF1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnderecoApi.Infrastructure", "EnderecoApi.Infrastructure\EnderecoApi.Infrastructure.csproj", "{C1D2E3F4-A5B6-7890-1234-56789ABCDEF2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnderecoApi.API", "EnderecoApi.API\EnderecoApi.API.csproj", "{D1E2F3A4-B5C6-7890-1234-56789ABCDEF3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnderecoApi.Tests", "EnderecoApi.Tests\EnderecoApi.Tests.csproj", "{E1F2A3B4-C5D6-7890-1234-56789ABCDEF4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A1B2C3D4-E5F6-7890-1234-56789ABCDEF0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-1234-56789ABCDEF0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-E5F6-7890-1234-56789ABCDEF0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-E5F6-7890-1234-56789ABCDEF0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B1C2D3E4-F5A6-7890-1234-56789ABCDEF1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B1C2D3E4-F5A6-7890-1234-56789ABCDEF1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B1C2D3E4-F5A6-7890-1234-56789ABCDEF1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B1C2D3E4-F5A6-7890-1234-56789ABCDEF1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C1D2E3F4-A5B6-7890-1234-56789ABCDEF2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C1D2E3F4-A5B6-7890-1234-56789ABCDEF2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C1D2E3F4-A5B6-7890-1234-56789ABCDEF2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C1D2E3F4-A5B6-7890-1234-56789ABCDEF2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D1E2F3A4-B5C6-7890-1234-56789ABCDEF3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D1E2F3A4-B5C6-7890-1234-56789ABCDEF3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D1E2F3A4-B5C6-7890-1234-56789ABCDEF3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D1E2F3A4-B5C6-7890-1234-56789ABCDEF3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E1F2A3B4-C5D6-7890-1234-56789ABCDEF4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E1F2A3B4-C5D6-7890-1234-56789ABCDEF4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E1F2A3B4-C5D6-7890-1234-56789ABCDEF4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E1F2A3B4-C5D6-7890-1234-56789ABCDEF4}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
+```
+
+### FILE: exemplos/api.enderecos/EnderecoApi.Domain/EnderecoApi.Domain.csproj
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+</Project>
+```
+
+### FILE: exemplos/api.enderecos/EnderecoApi.Domain/Entities/Endereco.cs
+```csharp
+namespace EnderecoApi.Domain.Entities;
+
+public class Endereco
+{
+    public Guid Id { get; private set; }
+    public string Logradouro { get; private set; }
+    public string Numero { get; private set; }
+    public string Bairro { get; private set; }
+    public string Cidade { get; private set; }
+    public string Estado { get; private set; }
+    public string Cep { get; private set; }
+
+    public Endereco(string logradouro, string numero, string bairro, string cidade, string estado, string cep)
+    {
+        Id = Guid.NewGuid();
+        Logradouro = logradouro;
+        Numero = numero;
+        Bairro = bairro;
+        Cidade = cidade;
+        Estado = estado;
+        Cep = cep;
+    }
+}
+```
+
+### FILE: exemplos/api.enderecos/EnderecoApi.Application/EnderecoApi.Application.csproj
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MediatR" Version="12.0.0" />
+    <PackageReference Include="FluentValidation" Version="12.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\EnderecoApi.Domain\EnderecoApi.Domain.csproj" />
+  </ItemGroup>
+</Project>
+```
+
+### FILE: exemplos/api.enderecos/EnderecoApi.Application/Commands/CreateEnderecoCommand.cs
+```csharp
+using MediatR;
+
+namespace EnderecoApi.Application.Commands;
+
+public record CreateEnderecoCommand(string Logradouro, string Numero, string Bairro, string Cidade, string Estado, string Cep) : IRequest<Guid>;
+```
+
+### FILE: exemplos/api.enderecos/EnderecoApi.Application/Validators/CreateEnderecoCommandValidator.cs
+```csharp
+using EnderecoApi.Application.Commands;
+using FluentValidation;
+
+namespace EnderecoApi.Application.Validators;
+
+public class CreateEnderecoCommandValidator : AbstractValidator<CreateEnderecoCommand>
+{
+    public CreateEnderecoCommandValidator()
+    {
+        RuleFor(x => x.Logradouro).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.Numero).NotEmpty().MaximumLength(10);
+        RuleFor(x => x.Bairro).NotEmpty().MaximumLength(50);
+        RuleFor(x => x.Cidade).NotEmpty().MaximumLength(50);
+        RuleFor(x => x.Estado).NotEmpty().MaximumLength(50);
+        RuleFor(x => x.Cep).NotEmpty().Matches(@"^\d{5}-\d{3}$");
+    }
+}
+```
+
+### FILE: exemplos/api.enderecos/EnderecoApi.Application/Handlers/CreateEnderecoCommandHandler.cs
+```csharp
+using EnderecoApi.Domain.Entities;
+using MediatR;
+
+namespace EnderecoApi.Application.Handlers;
+
+public class CreateEnderecoCommandHandler : IRequestHandler<CreateEnderecoCommand, Guid>
+{
+    private readonly IEnderecoRepository _repository;
+
+    public CreateEnderecoCommandHandler(IEnderecoRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<Guid> Handle(CreateEnderecoCommand request, CancellationToken cancellationToken)
+    {
+        var endereco = new Endereco(request.Logradouro, request.Numero, request.Bairro, request.Cidade, request.Estado, request.Cep);
+        await _repository.AddAsync(endereco);
+        return endereco.Id;
+    }
+}
+```
+
+### FILE: exemplos/api.enderecos/EnderecoApi.Infrastructure/EnderecoApi.Infrastructure.csproj
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\EnderecoApi.Domain\EnderecoApi.Domain.csproj" />
+  </ItemGroup>
+</Project>
+```
+
+### FILE: exemplos/api.enderecos/EnderecoApi.Infrastructure/Persistence/EnderecoDbContext.cs
+```csharp
+using EnderecoApi.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace EnderecoApi.Infrastructure.Persistence;
+
+public class EnderecoDbContext : DbContext
+{
+    public EnderecoDbContext(DbContextOptions<EnderecoDbContext> options) : base(options) { }
+
+    public DbSet<Endereco> Enderecos { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Endereco>()
+            .HasIndex(e => new { e.Logradouro, e.Numero, e.Bairro, e.Cidade, e.Estado, e.Cep })
+            .IsUnique();
+    }
+}
+```
+
+### FILE: exemplos/api.enderecos/EnderecoApi.API/EnderecoApi.API.csproj
+```xml
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MediatR.Extensions.Microsoft.DependencyInjection" Version="12.0.0" />
+    <PackageReference Include="FluentValidation.AspNetCore" Version="12.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\EnderecoApi.Application\EnderecoApi.Application.csproj" />
+    <ProjectReference Include="..\EnderecoApi.Infrastructure\EnderecoApi.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>
+```
+
+### FILE: exemplos/api.enderecos/EnderecoApi.API/Program.cs
+```csharp
+using EnderecoApi.Application.Commands;
+using EnderecoApi.Application.Handlers;
+using EnderecoApi.Application.Validators;
+using EnderecoApi.Infrastructure.Persistence;
+using FluentValidation;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<EnderecoDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddMediatR(typeof(CreateEnderecoCommandHandler));
+builder.Services.AddValidatorsFromAssemblyContaining<CreateEnderecoCommandValidator>();
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
+app.Run();
+```
+
+### FILE: exemplos/api.enderecos/EnderecoApi.API/Controllers/EnderecoController.cs
+```csharp
+using EnderecoApi.Application.Commands;
+using MediatR;
+using Microsoft.AspNetCore.Mvc;
+
+namespace EnderecoApi.API.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class EnderecoController : ControllerBase
+{
+    private readonly IMediator _mediator;
+
+    public EnderecoController(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> CreateEndereco([FromBody] CreateEnderecoCommand command)
+    {
+        var id = await _mediator.Send(command);
+        return CreatedAtAction(nameof(GetEnderecoById), new { id }, id);
+    }
+
+    [HttpGet("{id}")]
+    public IActionResult GetEnderecoById(Guid id)
+    {
+        // Placeholder for actual implementation
+        return Ok(new { id });
+    }
+}
+```
+
+### FILE: exemplos/api.enderecos/EnderecoApi.Tests/EnderecoApi.Tests.csproj
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit" Version="2.5.0" />
+    <PackageReference Include="Moq" Version="4.18.0" />
+    <PackageReference Include="FluentAssertions" Version="6.11.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\EnderecoApi.Application\EnderecoApi.Application.csproj" />
+    <ProjectReference Include="..\EnderecoApi.Domain\EnderecoApi.Domain.csproj" />
+  </ItemGroup>
+</Project>
+```
+
+### FILE: exemplos/api.enderecos/EnderecoApi.Tests/Handlers/CreateEnderecoCommandHandlerTests.cs
+```csharp
+using EnderecoApi.Application.Commands;
+using EnderecoApi.Application.Handlers;
+using EnderecoApi.Domain.Entities;
+using Moq;
+using Xunit;
+
+namespace EnderecoApi.Tests.Handlers;
+
+public class CreateEnderecoCommandHandlerTests
+{
+    [Fact]
+    public async Task Handle_ShouldCreateEndereco()
+    {
+        var repositoryMock = new Mock<IEnderecoRepository>();
+        var handler = new CreateEnderecoCommandHandler(repositoryMock.Object);
+
+        var command = new CreateEnderecoCommand("Rua A", "123", "Bairro B", "Cidade C", "Estado D", "12345-678");
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        repositoryMock.Verify(r => r.AddAsync(It.IsAny<Endereco>()), Times.Once);
+        result.Should().NotBeEmpty();
+    }
+}
+```
