@@ -1,6 +1,8 @@
 using EnderecoApi.Application.Commands;
 using EnderecoApi.Application.Handlers;
 using EnderecoApi.Domain.Entities;
+using EnderecoApi.Domain.Interfaces;
+using FluentAssertions;
 using Moq;
 using Xunit;
 

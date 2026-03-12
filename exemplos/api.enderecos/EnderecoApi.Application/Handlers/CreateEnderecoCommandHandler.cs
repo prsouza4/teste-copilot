@@ -1,4 +1,6 @@
+using EnderecoApi.Application.Commands;
 using EnderecoApi.Domain.Entities;
+using EnderecoApi.Domain.Interfaces;
 using MediatR;
 
 namespace EnderecoApi.Application.Handlers;
