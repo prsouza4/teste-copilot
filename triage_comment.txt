@@ -1,7 +1,7 @@
 ## Triagem Automatica
 
-- **Categoria:** enhancement
-- **Prioridade:** P2=medio
-- **Labels sugeridas:** jogo, backend, enhancement
-- **Resumo:** Criação de um jogo de pedra, papel e tesoura como uma nova funcionalidade no backend. O jogo deve seguir regras específicas de interação entre os itens.
-- **Proximo passo:** Avaliar a implementação das regras e criar um plano de desenvolvimento.
+- **Categoria:** backend
+- **Prioridade:** P1=alto
+- **Labels sugeridas:** api, addresses, .NET
+- **Resumo:** Implementar uma API de endereços com funcionalidade CRUD e prevenção de duplicatas, utilizando .NET 10. A estrutura do projeto deve ser criada na pasta especificada.
+- **Proximo passo:** Designar um desenvolvedor para iniciar a implementação da API e revisar os critérios de aceitação.

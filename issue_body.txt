@@ -1,21 +1,17 @@
-## 📋 Descrição
+## 📋 Descrição 
 
-Jogo papel tesoura
+Uma api de endereços
 
 ## 🎯 Problema que resolve
 
-Crie um jogo papel tesoura e pedra
+Cadastrar endereços
 
 ## ✅ Critérios de Aceitação
 
-- [ ] Pedra amassa tesoura
-- [ ] Papel enrola pedra
-- [ ] Tesoura corta papel
+- [ ]  Crud de endereços
+- [ ] Não cadastrar endereços repetidos
 
-
-## 🧱 Contexto Técnico
-
-- **Padrão:** Use agente backend
+Usar .NET 10 e bibliotecas compatíveis com esta versão .NET
 
 ## 📎 Informações adicionais
-Crie a aplicação dentro da pasta exemplos
+Criar dentro da pasta raiz do repositório/exemplos/api.enderecos criei a solution detrno desta pasta
