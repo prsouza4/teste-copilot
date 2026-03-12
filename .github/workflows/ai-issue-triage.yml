@@ -96,10 +96,7 @@ jobs:
             echo "✅ Issue #$ISSUE_NUMBER atribuída ao copilot-swe-agent"
           else
             echo "⚠️ Não foi possível atribuir ao copilot-swe-agent (verifique plano e permissões)"
-            gh issue comment "$ISSUE_NUMBER" --body "## ⚠️ Copilot Coding Agent
-
-Não foi possível atribuir automaticamente ao \`copilot-swe-agent\`.
-Atribua manualmente na sidebar da issue se quiser que o Copilot Agent trabalhe nela." || true
+            gh issue comment "$ISSUE_NUMBER" --body "⚠️ Não foi possível atribuir automaticamente ao \`copilot-swe-agent\`. Atribua manualmente na sidebar da issue." || true
           fi
 
       # ── 1. Triagem ────────────────────────────────────────────────────────
