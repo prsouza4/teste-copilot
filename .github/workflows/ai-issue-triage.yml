@@ -266,18 +266,20 @@ jobs:
           TEST_LOG=""
 
           # .NET — detecta .csproj/.sln OU arquivos .cs
-          if find . -name "*.csproj" -o -name "*.sln" | grep -q .; then
-            echo "Stack detectada: .NET (csproj/sln encontrado)"
-            BUILD_LOG=$(dotnet build --no-incremental 2>&1) && BUILD_STATUS="passed" || BUILD_STATUS="failed"
+          CSPROJ=$(find . -name "*.sln" ! -path "./_build_tmp/*" | head -1)
+          [ -z "$CSPROJ" ] && CSPROJ=$(find . -name "*.csproj" ! -path "./_build_tmp/*" | head -1)
+
+          if [ -n "$CSPROJ" ]; then
+            echo "Stack detectada: .NET — $CSPROJ"
+            BUILD_LOG=$(dotnet build "$CSPROJ" --no-incremental 2>&1) && BUILD_STATUS="passed" || BUILD_STATUS="failed"
             echo "$BUILD_LOG"
             if [ "$BUILD_STATUS" = "passed" ]; then
-              TEST_LOG=$(dotnet test --no-build --logger "console;verbosity=normal" 2>&1) && TEST_STATUS="passed" || TEST_STATUS="failed"
+              TEST_LOG=$(dotnet test "$CSPROJ" --no-build --logger "console;verbosity=normal" 2>&1) && TEST_STATUS="passed" || TEST_STATUS="failed"
               echo "$TEST_LOG"
             fi
 
-          elif find . -name "*.cs" | grep -q .; then
+          elif find . -name "*.cs" ! -path "./_build_tmp/*" | grep -q .; then
             echo "Stack detectada: .NET (arquivos .cs sem .csproj — criando projeto minimo)"
-            # Cria um projeto minimal para tentar compilar os .cs gerados
             mkdir -p _build_tmp
             dotnet new classlib -n GeneratedCode -o _build_tmp/GeneratedCode --no-restore -f net8.0 2>/dev/null
             find . -name "*.cs" ! -path "./_build_tmp/*" -exec cp {} _build_tmp/GeneratedCode/ \;
