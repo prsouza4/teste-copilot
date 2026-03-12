@@ -1,0 +1,21 @@
+## 📋 Descrição 
+
+Criar uma API simples de teste para validar o workflow de triagem de agentes
+
+## 🎯 Problema que resolve
+
+Cadastro de usuários
+
+## ✅ Critérios de Aceitação
+
+- [ ] Crud
+
+## 🧱 Contexto Técnico
+- Usar .NET 10
+- SOLID
+- DDD
+- Clean arch
+
+- Utilizar o pré-configurado
+## 📎 Informações adicionais
+Cirar uma pasta chamada exemplos/ e colocar a api dentro

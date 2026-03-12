@@ -1,0 +1,7 @@
+## Triagem Automatica
+
+- **Categoria:** backend
+- **Prioridade:** P1=alto
+- **Labels sugeridas:** api, usuarios, crud, .NET
+- **Resumo:** Criar uma API simples para cadastro de usuários, seguindo princípios de SOLID e DDD, utilizando .NET 10. A implementação deve estar dentro de uma pasta chamada exemplos/.
+- **Proximo passo:** Iniciar o desenvolvimento da API conforme os critérios de aceitação definidos.
