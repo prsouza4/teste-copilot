@@ -80,6 +80,10 @@ jobs:
         if: github.event_name != 'workflow_dispatch'
         env:
           GH_TOKEN: ${{ github.token }}
+          # PAT_COPILOT_ASSIGN: necessário para atribuir copilot-swe-agent via API
+          # Crie em: github.com/settings/tokens (scopes: repo)
+          # Adicione em: Settings → Secrets → PAT_COPILOT_ASSIGN
+          PAT_TOKEN: ${{ secrets.PAT_COPILOT_ASSIGN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           REPO: ${{ github.repository }}
         run: |
@@ -90,13 +94,12 @@ jobs:
           gh issue edit "$ISSUE_NUMBER" --add-label "copilot" || true
           echo "added=true" >> $GITHUB_OUTPUT
 
-          # 3. Verifica se copilot-swe-agent está disponível e atribui
-          # 3. Atribui ao copilot-swe-agent diretamente (sem verificação prévia)
-          if gh issue edit "$ISSUE_NUMBER" --add-assignee "copilot-swe-agent" 2>/dev/null; then
+          # 3. Atribui ao copilot-swe-agent usando PAT se disponível, senão GITHUB_TOKEN
+          ASSIGN_TOKEN="${PAT_TOKEN:-$GH_TOKEN}"
+          if GH_TOKEN="$ASSIGN_TOKEN" gh issue edit "$ISSUE_NUMBER" --add-assignee "copilot-swe-agent" 2>/dev/null; then
             echo "✅ Issue #$ISSUE_NUMBER atribuída ao copilot-swe-agent"
           else
-            echo "⚠️ Não foi possível atribuir ao copilot-swe-agent (verifique plano e permissões)"
-            gh issue comment "$ISSUE_NUMBER" --body "⚠️ Não foi possível atribuir automaticamente ao \`copilot-swe-agent\`. Atribua manualmente na sidebar da issue." || true
+            echo "⚠️ Assign falhou — adicione o secret PAT_COPILOT_ASSIGN ou atribua manualmente"
           fi
 
       # ── 1. Triagem ────────────────────────────────────────────────────────
