@@ -2,10 +2,17 @@ name: AI Issue Pipeline
 
 # Pipeline completo: triagem + geração de código + PR.
 # Dispara automaticamente ao abrir uma issue — sem labels intermediários.
+# Também pode ser disparado manualmente via workflow_dispatch.
 
 on:
   issues:
     types: [opened, reopened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Número da issue a implementar (para testes manuais)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -14,7 +21,7 @@ permissions:
   models: read
 
 concurrency:
-  group: issue-pipeline-${{ github.event.issue.number }}
+  group: issue-pipeline-${{ github.event.issue.number || github.event.inputs.issue_number }}
   cancel-in-progress: false
 
 jobs:
@@ -31,23 +38,47 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ── 0. Carregar dados da issue via gh (confiável para ambos os triggers) ─
+      - name: 📋 Carregar dados da issue
+        id: issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+        run: |
+          TITLE=$(gh issue view "$ISSUE_NUMBER" --json title -q '.title')
+          BODY=$(gh issue view  "$ISSUE_NUMBER" --json body  -q '.body')
+          LABELS=$(gh issue view "$ISSUE_NUMBER" --json labels -q '.labels[].name' | tr '\n' ',')
+
+          echo "title=$TITLE"   >> $GITHUB_OUTPUT
+          echo "labels=$LABELS" >> $GITHUB_OUTPUT
+          echo "$BODY" > issue_body.txt
+
+          # Detectar agente pelo label
+          if echo "$LABELS" | grep -qi "frontend"; then    AGENT="frontend"
+          elif echo "$LABELS" | grep -qi "infra"; then     AGENT="infra"
+          elif echo "$LABELS" | grep -qi "messaging"; then AGENT="messaging"
+          elif echo "$LABELS" | grep -qi "observability"; then AGENT="observability"
+          else                                              AGENT="backend"
+          fi
+          echo "agent=$AGENT" >> $GITHUB_OUTPUT
+          echo "Agente detectado: $AGENT"
+
       # ── 1. Triagem ────────────────────────────────────────────────────────
       - name: 📊 Triagem com GitHub Models API
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
-          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_TITLE: ${{ steps.issue.outputs.title }}
         run: |
           python3 << 'PYEOF'
-          import json, urllib.request, urllib.error, os, sys
+          import json, urllib.request, urllib.error, os
 
-          token  = os.environ["GH_TOKEN"]
-          title  = os.environ.get("ISSUE_TITLE", "")
-          body   = os.environ.get("ISSUE_BODY", "") or ""
+          token = os.environ["GH_TOKEN"]
+          title = os.environ.get("ISSUE_TITLE", "")
+          with open("issue_body.txt") as f:
+              body = f.read()[:3000]
 
           system_prompt = (
-            "Você é um especialista em triagem de issues de software.\n"
+            "Voce e um especialista em triagem de issues de software.\n"
             "Analise a issue e responda SOMENTE com o bloco markdown abaixo preenchido.\n\n"
             "## Triagem Automatica\n\n"
             "- **Categoria:** <bug | enhancement | infra | frontend | backend | docs>\n"
@@ -61,7 +92,7 @@ jobs:
               "model": "gpt-4o-mini",
               "messages": [
                   {"role": "system", "content": system_prompt},
-                  {"role": "user",   "content": f"Titulo: {title}\n\nDescricao:\n{body[:3000]}"}
+                  {"role": "user",   "content": "Titulo: " + title + "\n\nDescricao:\n" + body}
               ],
               "max_tokens": 500,
               "temperature": 0.2
@@ -70,13 +101,13 @@ jobs:
           req = urllib.request.Request(
               "https://models.inference.ai.azure.com/chat/completions",
               data=json.dumps(payload).encode(),
-              headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}", "Content-Type": "application/json"}
+              headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"}
           )
           try:
               with urllib.request.urlopen(req, timeout=30) as r:
                   comment = json.load(r)["choices"][0]["message"]["content"]
           except urllib.error.HTTPError as e:
-              comment = f"## Triagem Automatica\n\n_Erro HTTP {e.code}_"
+              comment = "## Triagem Automatica\n\n_Erro HTTP " + str(e.code) + "_"
 
           with open("triage_comment.txt", "w") as f:
               f.write(comment)
@@ -86,45 +117,24 @@ jobs:
       - name: 💬 Postar triagem na issue
         env:
           GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
         run: |
-          gh issue comment "${{ github.event.issue.number }}" --body-file triage_comment.txt
+          gh issue comment "$ISSUE_NUMBER" --body-file triage_comment.txt
 
-      # ── 2. Detectar agente pelo label da issue ────────────────────────────
-      - name: 🔍 Detectar agente
-        id: detect
+      # ── 2. Gerar código ───────────────────────────────────────────────────
+      - name: 🤖 Gerar implementação — agente ${{ steps.issue.outputs.agent }}
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-        run: |
-          LABELS=$(gh issue view "$ISSUE_NUMBER" --json labels -q '.labels[].name' | tr '\n' ',')
-          TITLE="${{ github.event.issue.title }}"
-
-          if echo "$LABELS" | grep -qi "frontend"; then    AGENT="frontend"
-          elif echo "$LABELS" | grep -qi "infra"; then     AGENT="infra"
-          elif echo "$LABELS" | grep -qi "messaging"; then AGENT="messaging"
-          elif echo "$LABELS" | grep -qi "observability"; then AGENT="observability"
-          else                                              AGENT="backend"
-          fi
-
-          echo "agent=$AGENT"  >> $GITHUB_OUTPUT
-          echo "Agente: $AGENT"
-
-          echo "${{ github.event.issue.body }}" > issue_body.txt
-
-      # ── 3. Gerar código ───────────────────────────────────────────────────
-      - name: 🤖 Gerar implementação — agente ${{ steps.detect.outputs.agent }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-          AGENT_NAME: ${{ steps.detect.outputs.agent }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
+          AGENT_NAME: ${{ steps.issue.outputs.agent }}
+          ISSUE_TITLE: ${{ steps.issue.outputs.title }}
         run: |
           python3 << 'PYEOF'
           import json, urllib.request, urllib.error, os, re, sys
 
-          token      = os.environ["GH_TOKEN"]
-          agent_name = os.environ.get("AGENT_NAME", "backend")
+          token       = os.environ["GH_TOKEN"]
+          agent_name  = os.environ.get("AGENT_NAME", "backend")
           issue_title = os.environ.get("ISSUE_TITLE", "")
-          agent_file  = f".github/agents/{agent_name}.agent.md"
+          agent_file  = ".github/agents/" + agent_name + ".agent.md"
 
           with open("issue_body.txt") as f:
               issue_body = f.read()[:2500]
@@ -134,16 +144,17 @@ jobs:
                   raw = f.read()
               agent_prompt = re.sub(r'^---.*?---\s*', '', raw, flags=re.DOTALL)[:3500]
           except FileNotFoundError:
-              agent_prompt = f"You are a {agent_name} development specialist."
+              agent_prompt = "You are a " + agent_name + " development specialist."
 
           file_format = (
               "\n\n---\n## Output Format\n\n"
-              "For EVERY file, use EXACTLY:\n\n"
+              "For EVERY file you generate, use EXACTLY this format:\n\n"
               "### FILE: relative/path/to/file.ext\n"
               "```language\n"
-              "file content\n"
+              "file content here\n"
               "```\n\n"
-              "Generate ALL files for a complete, working implementation.\n"
+              "Generate ALL necessary files for a complete, working implementation.\n"
+              "Include source code, unit tests, and a README if applicable.\n"
           )
 
           payload = {
@@ -151,10 +162,10 @@ jobs:
               "messages": [
                   {"role": "system", "content": agent_prompt + file_format},
                   {"role": "user",   "content": (
-                      f"Implement this GitHub issue:\n\n"
-                      f"**Title:** {issue_title}\n\n"
-                      f"**Description:**\n{issue_body}\n\n"
-                      f"Generate all files following {agent_name} best practices."
+                      "Implement the following GitHub issue:\n\n"
+                      "**Title:** " + issue_title + "\n\n"
+                      "**Description:**\n" + issue_body + "\n\n"
+                      "Generate all necessary files following " + agent_name + " agent best practices.\n"
                   )}
               ],
               "max_tokens": 4096,
@@ -164,15 +175,16 @@ jobs:
           req = urllib.request.Request(
               "https://models.inference.ai.azure.com/chat/completions",
               data=json.dumps(payload).encode(),
-              headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+              headers={"Authorization": "Bearer " + token, "Content-Type": "application/json"}
           )
 
-          print(f"Gerando com agente: {agent_name}")
+          print("Chamando GitHub Models API com agente: " + agent_name)
           try:
               with urllib.request.urlopen(req, timeout=90) as r:
                   content = json.load(r)["choices"][0]["message"]["content"]
           except urllib.error.HTTPError as e:
-              print(f"Erro HTTP {e.code}: {e.read().decode()}", file=sys.stderr)
+              err = e.read().decode()
+              print("Erro HTTP " + str(e.code) + ": " + err, file=sys.stderr)
               sys.exit(1)
 
           files = re.findall(r'### FILE: (.+?)\n```(?:\w+)?\n(.*?)```', content, re.DOTALL)
@@ -180,20 +192,24 @@ jobs:
               files = [("IMPLEMENTATION_NOTES.md", content)]
               print("Sem arquivos estruturados — salvando como notas")
           else:
-              print(f"Arquivos gerados: {len(files)}")
-              for p, _ in files: print(f"  - {p.strip()}")
+              print("Arquivos gerados: " + str(len(files)))
+              for p, _ in files:
+                  print("  - " + p.strip())
 
           with open("generated_files.json", "w") as f:
               json.dump([{"path": p.strip(), "content": c} for p, c in files], f, ensure_ascii=False)
+
+          with open("ai_response.txt", "w") as f:
+              f.write(content)
           PYEOF
 
-      # ── 4. Criar branch + commit + PR ────────────────────────────────────
-      - name: 🌿 Criar branch e abrir PR
+      # ── 3. Criar branch, commitar e abrir PR ─────────────────────────────
+      - name: 🌿 Criar branch e commitar arquivos gerados
         env:
           GH_TOKEN: ${{ github.token }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          AGENT_NAME: ${{ steps.detect.outputs.agent }}
-          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+          AGENT_NAME: ${{ steps.issue.outputs.agent }}
+          ISSUE_TITLE: ${{ steps.issue.outputs.title }}
           RUN_ID: ${{ github.run_id }}
         run: |
           SLUG=$(echo "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]' | tr ' /' '--' | sed 's/[^a-z0-9-]//g' | cut -c1-30)
@@ -213,30 +229,69 @@ jobs:
                   os.makedirs(dirpath, exist_ok=True)
               with open(file["path"], "w", encoding="utf-8") as f:
                   f.write(file["content"])
-              print(f"Criado: {file['path']}")
+              print("Criado: " + file["path"])
           PYEOF
 
           git add -A
+          git status
           git commit -m "feat: implementar issue #${ISSUE_NUMBER} via agente ${AGENT_NAME}
+
+          Implementacao gerada automaticamente pelo agente ${AGENT_NAME}
+          usando GitHub Models API (gpt-4o).
 
           Closes #${ISSUE_NUMBER}
 
           Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 
           git push origin "$BRANCH"
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
 
+      # ── 4. Abrir Pull Request ─────────────────────────────────────────────
+      - name: 🔀 Abrir Pull Request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+          AGENT_NAME: ${{ steps.issue.outputs.agent }}
+          ISSUE_TITLE: ${{ steps.issue.outputs.title }}
+        run: |
           gh pr create \
             --title "feat: ${ISSUE_TITLE}" \
             --body "## Implementacao gerada pelo agente \`${AGENT_NAME}\`
 
-          Agente: **${AGENT_NAME}** | Issue: #${ISSUE_NUMBER}
+          Esta PR foi gerada automaticamente pelo agente **\`${AGENT_NAME}\`**
+          usando o \`.github/agents/${AGENT_NAME}.agent.md\` como system prompt
+          e **GitHub Models API (gpt-4o)** para geracao do codigo.
+
+          **Issue:** #${ISSUE_NUMBER} -- ${ISSUE_TITLE}
+
+          ### Revisao necessaria
+          - Verifique os arquivos gerados
+          - Execute os testes localmente
+          - Ajuste conforme necessario antes do merge
 
           Closes #${ISSUE_NUMBER}
 
           ---
-          _Gerado automaticamente por AI Issue Pipeline_" \
+          _Gerado automaticamente pelo workflow AI Issue Pipeline_" \
             --base develop \
             --head "$BRANCH"
 
-          gh issue comment "${ISSUE_NUMBER}" \
-            --body "PR aberto automaticamente pelo agente **${AGENT_NAME}**. Revise antes de fazer merge."
+      # ── 5. Notificar na issue ─────────────────────────────────────────────
+      - name: 💬 Comentar na issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.inputs.issue_number }}
+          AGENT_NAME: ${{ steps.issue.outputs.agent }}
+        run: |
+          gh issue comment "$ISSUE_NUMBER" \
+            --body "## Implementacao concluida
+
+          O agente **\`${AGENT_NAME}\`** gerou a implementacao e abriu um PR automaticamente.
+
+          Proximos passos:
+          1. Revise os arquivos no PR
+          2. Execute os testes
+          3. Faca ajustes se necessario
+          4. Faca o merge quando aprovado
+
+          Os workflows de revisao (Security, QA, Architect) vao rodar automaticamente no PR."
