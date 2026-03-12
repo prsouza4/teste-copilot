@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "nuget": {
+      "command": "node",
+      "args": ["mcp-servers/nuget-mcp/index.js"],
+      "description": "Busca pacotes NuGet compatíveis com .NET 10, verifica versões e vulnerabilidades conhecidas"
+    },
+    "npm-compat": {
+      "command": "node",
+      "args": ["mcp-servers/npm-compat-mcp/index.js"],
+      "description": "Verifica compatibilidade de pacotes NPM com Next.js 15 e React 19, busca versões recomendadas"
+    }
+  }
+}

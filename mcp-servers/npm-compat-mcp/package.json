@@ -1,0 +1,17 @@
+{
+  "name": "npm-compat-mcp",
+  "version": "1.0.0",
+  "description": "MCP server para verificação de compatibilidade de pacotes NPM com Next.js 15 e React 19",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test tests/npm-compat-mcp.test.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

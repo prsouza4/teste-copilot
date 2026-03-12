@@ -4,6 +4,10 @@ logs/
 # Work folder — arquivos locais de rastreamento (não commitar)
 work/
 
+# MCP Servers — dependências locais (não commitar)
+mcp-servers/**/node_modules/
+mcp-servers/**/package-lock.json
+
 # .NET
 bin/
 obj/

@@ -1,0 +1,113 @@
+name: Auto-assign Issue ao Copilot Coding Agent
+
+# Quando qualquer colaborador adiciona a label "copilot" a uma issue,
+# este workflow a atribui automaticamente ao copilot-swe-agent.
+#
+# O Copilot Coding Agent então:
+#   1. Adiciona reação 👀 na issue
+#   2. Cria branch copilot/issue-NNN-titulo
+#   3. Abre PR de rascunho
+#   4. Trabalha autonomamente e pede revisão ao concluir
+#
+# Pré-requisito: plano GitHub Pro+, Business ou Enterprise.
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  assign-to-copilot:
+    name: Atribuir ao Copilot Agent
+    runs-on: ubuntu-latest
+
+    # Só executa quando a label adicionada for "copilot"
+    if: github.event.label.name == 'copilot'
+
+    steps:
+      - name: 🤖 Verificar disponibilidade do Copilot Agent
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Verifica se copilot-swe-agent está disponível como assignee
+          OWNER=$(echo "$REPO" | cut -d'/' -f1)
+          NAME=$(echo "$REPO" | cut -d'/' -f2)
+
+          AVAILABLE=$(gh api graphql -f query='
+            query($owner:String!, $name:String!) {
+              repository(owner:$owner, name:$name) {
+                suggestedActors(capabilities:[CAN_BE_ASSIGNED], first:100) {
+                  nodes { login }
+                }
+              }
+            }
+          ' -f owner="$OWNER" -f name="$NAME" \
+            --jq '.data.repository.suggestedActors.nodes[].login' \
+            | grep -c "copilot-swe-agent" || true)
+
+          if [ "$AVAILABLE" -gt "0" ]; then
+            echo "available=true" >> $GITHUB_OUTPUT
+            echo "✅ copilot-swe-agent disponível"
+          else
+            echo "available=false" >> $GITHUB_OUTPUT
+            echo "⚠️ copilot-swe-agent não disponível neste plano/repositório"
+          fi
+
+      - name: 🎯 Atribuir issue ao Copilot Agent
+        if: steps.check.outputs.available == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh issue edit "$ISSUE_NUMBER" --add-assignee copilot-swe-agent
+          echo "✅ Issue #$ISSUE_NUMBER atribuída ao copilot-swe-agent"
+
+      - name: 🧹 Fechar PR do triage automático (se existir)
+        if: steps.check.outputs.available == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          # Busca PRs abertos que referenciam esta issue e foram criados pelo github-actions[bot]
+          TRIAGE_PRS=$(gh pr list \
+            --state open \
+            --json number,author,headRefName,title \
+            --jq ".[] | select(.author.login == \"github-actions[bot]\" and (.headRefName | startswith(\"feature/${ISSUE_NUMBER}-\"))) | .number")
+
+          if [ -n "$TRIAGE_PRS" ]; then
+            for PR_NUM in $TRIAGE_PRS; do
+              gh pr close "$PR_NUM" \
+                --comment "## 🤖 Handoff para Copilot Coding Agent
+
+          A label \`copilot\` foi adicionada à issue #${ISSUE_NUMBER}. O **Copilot Coding Agent** assumirá a implementação.
+
+          Este PR (gerado automaticamente pelo workflow de triagem) foi fechado para evitar conflito. O Copilot Agent criará um novo PR em breve.
+
+          > _Fechado automaticamente por \`ai-issue-assign-copilot.yml\`_"
+              echo "✅ PR #$PR_NUM do triage fechado — handoff para Copilot Agent"
+            done
+          else
+            echo "ℹ️ Nenhum PR de triage encontrado para issue #$ISSUE_NUMBER"
+          fi
+
+      - name: 💬 Comentar se agente indisponível
+        if: steps.check.outputs.available == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          gh issue comment "$ISSUE_NUMBER" --body "## ⚠️ Copilot Coding Agent Indisponível
+
+          O \`copilot-swe-agent\` não está disponível neste repositório.
+
+          **Verifique:**
+          - Plano GitHub Pro+, Business ou Enterprise é necessário
+          - O agente não pode estar desabilitado na organização
+          - Acesse: \`github.com/settings/copilot/features\`
+
+          O label \`copilot\` foi aplicado mas a atribuição automática não ocorreu."

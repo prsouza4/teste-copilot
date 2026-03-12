@@ -1,0 +1,17 @@
+{
+  "name": "nuget-mcp",
+  "version": "1.0.0",
+  "description": "MCP server para busca e verificação de pacotes NuGet compatíveis com .NET 10",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node --test tests/nuget-mcp.test.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

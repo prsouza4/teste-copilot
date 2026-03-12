@@ -1,0 +1,78 @@
+name: "Copilot Setup Steps"
+
+# Pré-instala dependências no ambiente efêmero do Copilot Coding Agent
+# antes de ele iniciar qualquer sessão de trabalho.
+# Referência: https://docs.github.com/en/copilot/customizing-copilot/customizing-the-development-environment-for-copilot-coding-agent
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: 📦 Checkout
+        uses: actions/checkout@v4
+
+      # ── .NET 10 ────────────────────────────────────────────────────────────
+      - name: ⚙️ Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: 🔧 Instalar ferramentas .NET globais
+        run: |
+          dotnet tool install --global dotnet-ef || true
+          dotnet tool install --global dotnet-format || true
+          dotnet tool install --global coverlet.console || true
+
+      # ── Node.js / Next.js ──────────────────────────────────────────────────
+      - name: ⚙️ Setup Node.js 22 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: 📦 Instalar pnpm
+        run: npm install -g pnpm
+
+      - name: 📦 Instalar dependências Node (se existir package.json)
+        run: |
+          if [ -f "package.json" ]; then
+            pnpm install --frozen-lockfile 2>/dev/null || npm ci
+          else
+            echo "Nenhum package.json encontrado — pulando."
+          fi
+
+      # ── MCP Servers ────────────────────────────────────────────────────────
+      - name: 🔌 Instalar dependências dos servidores MCP
+        run: |
+          if [ -f "mcp-servers/nuget-mcp/package.json" ]; then
+            cd mcp-servers/nuget-mcp && npm ci
+          fi
+          if [ -f "mcp-servers/npm-compat-mcp/package.json" ]; then
+            cd mcp-servers/npm-compat-mcp && npm ci
+          fi
+
+      # ── Ferramentas de qualidade ───────────────────────────────────────────
+      - name: 🔍 Instalar GitHub CLI (já disponível em ubuntu-latest)
+        run: gh --version
+
+      - name: ✅ Verificar setup
+        run: |
+          echo "=== Ambiente pronto para o Copilot Coding Agent ==="
+          dotnet --version
+          node --version
+          npm --version
+          pnpm --version || true
+          dotnet tool list --global

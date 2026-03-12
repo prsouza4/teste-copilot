@@ -44,6 +44,13 @@ area-skills:
       - any-glob-to-any-file:
           - ".claude/skills/**/*"
           - ".serena/memories/skill-*.md"
+          - ".github/skills/**/*"
+
+area-mcp:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "mcp-servers/**/*"
+          - ".github/mcp.json"
 
 # ============================================================================
 # CONTENT TYPE LABELS
