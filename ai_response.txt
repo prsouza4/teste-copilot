@@ -1,0 +1,400 @@
+### FILE: exemplos/EnderecoApi.sln
+```plaintext
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31912.275
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnderecoApi", "EnderecoApi/EnderecoApi.csproj", "{B1A1E2C3-4D5E-6F7A-8B9C-0D1E2F3A4B5C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnderecoApi.Tests", "EnderecoApi.Tests/EnderecoApi.Tests.csproj", "{C1D2E3F4-5A6B-7C8D-9E0F-1A2B3C4D5E6F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B1A1E2C3-4D5E-6F7A-8B9C-0D1E2F3A4B5C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B1A1E2C3-4D5E-6F7A-8B9C-0D1E2F3A4B5C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B1A1E2C3-4D5E-6F7A-8B9C-0D1E2F3A4B5C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B1A1E2C3-4D5E-6F7A-8B9C-0D1E2F3A4B5C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C1D2E3F4-5A6B-7C8D-9E0F-1A2B3C4D5E6F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C1D2E3F4-5A6B-7C8D-9E0F-1A2B3C4D5E6F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C1D2E3F4-5A6B-7C8D-9E0F-1A2B3C4D5E6F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C1D2E3F4-5A6B-7C8D-9E0F-1A2B3C4D5E6F}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
+```
+
+### FILE: exemplos/EnderecoApi/EnderecoApi.csproj
+```xml
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.0" />
+    <PackageReference Include="FluentValidation.AspNetCore" Version="11.6.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+  </ItemGroup>
+
+</Project>
+```
+
+### FILE: exemplos/EnderecoApi/Program.cs
+```csharp
+using EnderecoApi.Data;
+using EnderecoApi.Models;
+using EnderecoApi.Validators;
+using FluentValidation.AspNetCore;
+using Microsoft.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddDbContext<EnderecoDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddControllers()
+    .AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<EnderecoValidator>());
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+```
+
+### FILE: exemplos/EnderecoApi/appsettings.json
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=(localdb)\\mssqllocaldb;Database=EnderecoDb;Trusted_Connection=True;MultipleActiveResultSets=true"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+```
+
+### FILE: exemplos/EnderecoApi/Data/EnderecoDbContext.cs
+```csharp
+using EnderecoApi.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace EnderecoApi.Data;
+
+public class EnderecoDbContext : DbContext
+{
+    public EnderecoDbContext(DbContextOptions<EnderecoDbContext> options) : base(options)
+    {
+    }
+
+    public DbSet<Endereco> Enderecos { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Endereco>()
+            .HasIndex(e => new { e.Logradouro, e.Numero, e.Cidade, e.Estado, e.CEP })
+            .IsUnique();
+    }
+}
+```
+
+### FILE: exemplos/EnderecoApi/Models/Endereco.cs
+```csharp
+namespace EnderecoApi.Models;
+
+public class Endereco
+{
+    public int Id { get; set; }
+    public string Logradouro { get; set; } = string.Empty;
+    public string Numero { get; set; } = string.Empty;
+    public string Complemento { get; set; } = string.Empty;
+    public string Bairro { get; set; } = string.Empty;
+    public string Cidade { get; set; } = string.Empty;
+    public string Estado { get; set; } = string.Empty;
+    public string CEP { get; set; } = string.Empty;
+}
+```
+
+### FILE: exemplos/EnderecoApi/Validators/EnderecoValidator.cs
+```csharp
+using EnderecoApi.Models;
+using FluentValidation;
+
+namespace EnderecoApi.Validators;
+
+public class EnderecoValidator : AbstractValidator<Endereco>
+{
+    public EnderecoValidator()
+    {
+        RuleFor(e => e.Logradouro).NotEmpty().WithMessage("O logradouro é obrigatório.");
+        RuleFor(e => e.Numero).NotEmpty().WithMessage("O número é obrigatório.");
+        RuleFor(e => e.Cidade).NotEmpty().WithMessage("A cidade é obrigatória.");
+        RuleFor(e => e.Estado).NotEmpty().WithMessage("O estado é obrigatório.");
+        RuleFor(e => e.CEP).NotEmpty().Matches(@"^\d{5}-\d{3}$").WithMessage("O CEP deve estar no formato 00000-000.");
+    }
+}
+```
+
+### FILE: exemplos/EnderecoApi/Controllers/EnderecoController.cs
+```csharp
+using EnderecoApi.Data;
+using EnderecoApi.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
+namespace EnderecoApi.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class EnderecoController : ControllerBase
+{
+    private readonly EnderecoDbContext _context;
+
+    public EnderecoController(EnderecoDbContext context)
+    {
+        _context = context;
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<Endereco>>> GetEnderecos()
+    {
+        return await _context.Enderecos.ToListAsync();
+    }
+
+    [HttpGet("{id}")]
+    public async Task<ActionResult<Endereco>> GetEndereco(int id)
+    {
+        var endereco = await _context.Enderecos.FindAsync(id);
+
+        if (endereco == null)
+        {
+            return NotFound();
+        }
+
+        return endereco;
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<Endereco>> CreateEndereco(Endereco endereco)
+    {
+        if (await _context.Enderecos.AnyAsync(e =>
+            e.Logradouro == endereco.Logradouro &&
+            e.Numero == endereco.Numero &&
+            e.Cidade == endereco.Cidade &&
+            e.Estado == endereco.Estado &&
+            e.CEP == endereco.CEP))
+        {
+            return Conflict("Endereço já cadastrado.");
+        }
+
+        _context.Enderecos.Add(endereco);
+        await _context.SaveChangesAsync();
+
+        return CreatedAtAction(nameof(GetEndereco), new { id = endereco.Id }, endereco);
+    }
+
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateEndereco(int id, Endereco endereco)
+    {
+        if (id != endereco.Id)
+        {
+            return BadRequest();
+        }
+
+        _context.Entry(endereco).State = EntityState.Modified;
+
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            if (!EnderecoExists(id))
+            {
+                return NotFound();
+            }
+            else
+            {
+                throw;
+            }
+        }
+
+        return NoContent();
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteEndereco(int id)
+    {
+        var endereco = await _context.Enderecos.FindAsync(id);
+        if (endereco == null)
+        {
+            return NotFound();
+        }
+
+        _context.Enderecos.Remove(endereco);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    private bool EnderecoExists(int id)
+    {
+        return _context.Enderecos.Any(e => e.Id == id);
+    }
+}
+```
+
+### FILE: exemplos/EnderecoApi.Tests/EnderecoApi.Tests.csproj
+```xml
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.0" />
+    <PackageReference Include="xunit" Version="2.4.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5" />
+    <PackageReference Include="Moq" Version="4.20.1" />
+    <PackageReference Include="FluentAssertions" Version="6.11.0" />
+  </ItemGroup>
+
+</Project>
+```
+
+### FILE: exemplos/EnderecoApi.Tests/EnderecoControllerTests.cs
+```csharp
+using EnderecoApi.Controllers;
+using EnderecoApi.Data;
+using EnderecoApi.Models;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Xunit;
+
+namespace EnderecoApi.Tests;
+
+public class EnderecoControllerTests
+{
+    private readonly EnderecoDbContext _context;
+    private readonly EnderecoController _controller;
+
+    public EnderecoControllerTests()
+    {
+        var options = new DbContextOptionsBuilder<EnderecoDbContext>()
+            .UseInMemoryDatabase(databaseName: "EnderecoTestDb")
+            .Options;
+
+        _context = new EnderecoDbContext(options);
+        _controller = new EnderecoController(_context);
+    }
+
+    [Fact]
+    public async Task CreateEndereco_ShouldAddNewEndereco()
+    {
+        var endereco = new Endereco
+        {
+            Logradouro = "Rua A",
+            Numero = "123",
+            Complemento = "Apto 1",
+            Bairro = "Centro",
+            Cidade = "São Paulo",
+            Estado = "SP",
+            CEP = "12345-678"
+        };
+
+        var result = await _controller.CreateEndereco(endereco);
+
+        result.Should().BeOfType<CreatedAtActionResult>();
+        var createdEndereco = (result as CreatedAtActionResult)?.Value as Endereco;
+        createdEndereco.Should().NotBeNull();
+        createdEndereco?.Logradouro.Should().Be("Rua A");
+    }
+
+    [Fact]
+    public async Task CreateEndereco_ShouldNotAllowDuplicateEndereco()
+    {
+        var endereco = new Endereco
+        {
+            Logradouro = "Rua A",
+            Numero = "123",
+            Complemento = "Apto 1",
+            Bairro = "Centro",
+            Cidade = "São Paulo",
+            Estado = "SP",
+            CEP = "12345-678"
+        };
+
+        await _controller.CreateEndereco(endereco);
+        var result = await _controller.CreateEndereco(endereco);
+
+        result.Should().BeOfType<ConflictObjectResult>();
+    }
+}
+```
+
+### FILE: exemplos/EnderecoApi/README.md
+```markdown
+# EnderecoApi
+
+## Descrição
+
+Uma API para gerenciar endereços, permitindo criar, listar, atualizar e excluir endereços. A API também impede o cadastro de endereços duplicados.
+
+## Requisitos
+
+- .NET 8 SDK
+- SQL Server (ou LocalDB para desenvolvimento)
+
+## Configuração
+
+1. Clone o repositório.
+2. Navegue até a pasta `exemplos/EnderecoApi`.
+3. Configure a string de conexão no arquivo `appsettings.json`.
+4. Execute os seguintes comandos no terminal:
+
+```bash
+dotnet restore
+dotnet ef database update
+dotnet run
+```
+
+5. Acesse a documentação da API em `https://localhost:5001/swagger`.
+
+## Testes
+
+1. Navegue até a pasta `exemplos/EnderecoApi.Tests`.
+2. Execute os testes com o comando:
+
+```bash
+dotnet test
+```
+```

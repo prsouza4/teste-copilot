@@ -2,6 +2,6 @@
 
 - **Categoria:** enhancement
 - **Prioridade:** P2=medio
-- **Labels sugeridas:** jogo, backend, enhancement
-- **Resumo:** Criação de um jogo de pedra, papel e tesoura como uma nova funcionalidade no backend. O jogo deve seguir regras específicas de interação entre os itens.
-- **Proximo passo:** Avaliar a implementação das regras e criar um plano de desenvolvimento.
+- **Labels sugeridas:** api, backend, feature
+- **Resumo:** A issue solicita a criação de uma API para gerenciar endereços, incluindo funcionalidades de CRUD e evitando duplicação de registros. 
+- **Proximo passo:** Avaliar a viabilidade da implementação da API e definir prazos para desenvolvimento.
