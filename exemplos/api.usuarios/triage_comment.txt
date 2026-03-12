@@ -1,7 +1,0 @@
-## Triagem Automatica
-
-- **Categoria:** backend
-- **Prioridade:** P1=alto
-- **Labels sugeridas:** api, cadastro, usuario, backend
-- **Resumo:** Implementar uma API para o cadastro de usuários, permitindo a inclusão de informações como nome, CPF, e-mail e outros dados relevantes. O sistema deve seguir padrões como CQRS e incluir um CRUD completo.
-- **Proximo passo:** Iniciar o desenvolvimento da API conforme os critérios de aceitação e contexto técnico fornecidos.

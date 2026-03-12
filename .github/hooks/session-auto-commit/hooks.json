@@ -1,0 +1,9 @@
+{
+  "hooks": [
+    {
+      "event": "Stop",
+      "command": "bash .github/hooks/session-auto-commit/auto-commit.sh",
+      "windows": "powershell -File .github/hooks/session-auto-commit/auto-commit.ps1"
+    }
+  ]
+}

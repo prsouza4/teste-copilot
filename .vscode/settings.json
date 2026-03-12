@@ -1,0 +1,16 @@
+{
+  "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+  "chat.promptFilesLocations": [
+    ".github/prompts"
+  ],
+  "chat.instructionsFilesLocations": [
+    ".github/instructions"
+  ],
+  "github.copilot.editor.enableCodeActions": true,
+  "github.copilot.chat.trailingContext.enabled": true,
+  "chat.promptFilesRecommendations": {
+    "start-issue": true,
+    "status": true,
+    "debug": true
+  }
+}

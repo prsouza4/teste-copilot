@@ -1,0 +1,19 @@
+{
+  "hooks": [
+    {
+      "event": "SessionStart",
+      "command": "bash .github/hooks/session-logger/log-session-start.sh",
+      "windows": "powershell -File .github/hooks/session-logger/log-session-start.ps1"
+    },
+    {
+      "event": "Stop",
+      "command": "bash .github/hooks/session-logger/log-session-end.sh",
+      "windows": "powershell -File .github/hooks/session-logger/log-session-end.ps1"
+    },
+    {
+      "event": "UserPromptSubmit",
+      "command": "bash .github/hooks/session-logger/log-prompt.sh",
+      "windows": "powershell -File .github/hooks/session-logger/log-prompt.ps1"
+    }
+  ]
+}
