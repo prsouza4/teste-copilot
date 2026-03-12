@@ -1,0 +1,53 @@
+using Endereco.Domain.Entities;
+using Endereco.Domain.Interfaces;
+using Microsoft.EntityFrameworkCore;
+
+namespace Endereco.Infrastructure.Persistence;
+
+public class EnderecoRepository : IEnderecoRepository
+{
+    private readonly EnderecoDbContext _context;
+
+    public EnderecoRepository(EnderecoDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<bool> ExistsAsync(string rua, string numero, string cidade, string estado, string cep)
+    {
+        return await _context.Enderecos.AnyAsync(e =>
+            e.Rua == rua &&
+            e.Numero == numero &&
+            e.Cidade == cidade &&
+            e.Estado == estado &&
+            e.CEP == cep);
+    }
+
+    public async Task AddAsync(Endereco endereco)
+    {
+        await _context.Enderecos.AddAsync(endereco);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<Endereco> GetByIdAsync(Guid id)
+    {
+        return await _context.Enderecos.FindAsync(id);
+    }
+
+    public async Task<IEnumerable<Endereco>> GetAllAsync()
+    {
+        return await _context.Enderecos.ToListAsync();
+    }
+
+    public async Task UpdateAsync(Endereco endereco)
+    {
+        _context.Enderecos.Update(endereco);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(Endereco endereco)
+    {
+        _context.Enderecos.Remove(endereco);
+        await _context.SaveChangesAsync();
+    }
+}

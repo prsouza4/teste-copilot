@@ -1,0 +1,574 @@
+### FILE: exemplos/Endereco.API/Program.cs
+```csharp
+using Endereco.Application;
+using Endereco.Infrastructure;
+using Endereco.API;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddApplicationServices();
+builder.Services.AddInfrastructureServices(builder.Configuration);
+builder.Services.AddApiServices();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+app.UseApiConfiguration();
+
+app.Run();
+```
+
+---
+
+### FILE: exemplos/Endereco.API/Endpoints/EnderecoEndpoints.cs
+```csharp
+using Endereco.Application.Enderecos.Commands;
+using Endereco.Application.Enderecos.Queries;
+using MediatR;
+
+namespace Endereco.API.Endpoints;
+
+public static class EnderecoEndpoints
+{
+    public static void MapEnderecoEndpoints(this IEndpointRouteBuilder endpoints)
+    {
+        var group = endpoints.MapGroup("/api/enderecos");
+
+        group.MapPost("/", async (CreateEnderecoCommand command, IMediator mediator) =>
+        {
+            var result = await mediator.Send(command);
+            return Results.Created($"/api/enderecos/{result}", result);
+        });
+
+        group.MapGet("/", async (IMediator mediator) =>
+        {
+            var result = await mediator.Send(new GetAllEnderecosQuery());
+            return Results.Ok(result);
+        });
+
+        group.MapGet("/{id:guid}", async (Guid id, IMediator mediator) =>
+        {
+            var result = await mediator.Send(new GetEnderecoByIdQuery(id));
+            return result is not null ? Results.Ok(result) : Results.NotFound();
+        });
+
+        group.MapPut("/{id:guid}", async (Guid id, UpdateEnderecoCommand command, IMediator mediator) =>
+        {
+            if (id != command.Id) return Results.BadRequest();
+
+            var result = await mediator.Send(command);
+            return result ? Results.NoContent() : Results.NotFound();
+        });
+
+        group.MapDelete("/{id:guid}", async (Guid id, IMediator mediator) =>
+        {
+            var result = await mediator.Send(new DeleteEnderecoCommand(id));
+            return result ? Results.NoContent() : Results.NotFound();
+        });
+    }
+}
+```
+
+---
+
+### FILE: exemplos/Endereco.API/Extensions/ServiceCollectionExtensions.cs
+```csharp
+using Microsoft.AspNetCore.Mvc;
+
+namespace Endereco.API;
+
+public static class ServiceCollectionExtensions
+{
+    public static IServiceCollection AddApiServices(this IServiceCollection services)
+    {
+        services.AddEndpointsApiExplorer();
+        services.AddSwaggerGen();
+        services.Configure<ApiBehaviorOptions>(options =>
+        {
+            options.SuppressModelStateInvalidFilter = true;
+        });
+
+        return services;
+    }
+}
+```
+
+---
+
+### FILE: exemplos/Endereco.API/Extensions/ApplicationBuilderExtensions.cs
+```csharp
+namespace Endereco.API;
+
+public static class ApplicationBuilderExtensions
+{
+    public static WebApplication UseApiConfiguration(this WebApplication app)
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI();
+
+        app.UseHttpsRedirection();
+
+        app.MapEndpoints();
+
+        return app;
+    }
+
+    private static void MapEndpoints(this WebApplication app)
+    {
+        app.MapEnderecoEndpoints();
+    }
+}
+```
+
+---
+
+### FILE: exemplos/Endereco.Application/DependencyInjection.cs
+```csharp
+using Microsoft.Extensions.DependencyInjection;
+using System.Reflection;
+
+namespace Endereco.Application;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection AddApplicationServices(this IServiceCollection services)
+    {
+        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()));
+        services.AddValidatorsFromAssembly(Assembly.GetExecutingAssembly());
+
+        return services;
+    }
+}
+```
+
+---
+
+### FILE: exemplos/Endereco.Application/Enderecos/Commands/CreateEnderecoCommand.cs
+```csharp
+using FluentValidation;
+using MediatR;
+
+namespace Endereco.Application.Enderecos.Commands;
+
+public record CreateEnderecoCommand(string Rua, string Numero, string Cidade, string Estado, string CEP) : IRequest<Guid>;
+
+public class CreateEnderecoCommandValidator : AbstractValidator<CreateEnderecoCommand>
+{
+    public CreateEnderecoCommandValidator()
+    {
+        RuleFor(x => x.Rua).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.Numero).NotEmpty().MaximumLength(10);
+        RuleFor(x => x.Cidade).NotEmpty().MaximumLength(50);
+        RuleFor(x => x.Estado).NotEmpty().MaximumLength(50);
+        RuleFor(x => x.CEP).NotEmpty().Matches(@"^\d{5}-\d{3}$").WithMessage("CEP inválido.");
+    }
+}
+```
+
+---
+
+### FILE: exemplos/Endereco.Application/Enderecos/Commands/CreateEnderecoCommandHandler.cs
+```csharp
+using Endereco.Domain.Entities;
+using Endereco.Domain.Interfaces;
+using MediatR;
+
+namespace Endereco.Application.Enderecos.Commands;
+
+public class CreateEnderecoCommandHandler : IRequestHandler<CreateEnderecoCommand, Guid>
+{
+    private readonly IEnderecoRepository _repository;
+
+    public CreateEnderecoCommandHandler(IEnderecoRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<Guid> Handle(CreateEnderecoCommand request, CancellationToken cancellationToken)
+    {
+        var exists = await _repository.ExistsAsync(request.Rua, request.Numero, request.Cidade, request.Estado, request.CEP);
+        if (exists) throw new InvalidOperationException("Endereço já cadastrado.");
+
+        var endereco = new Endereco(request.Rua, request.Numero, request.Cidade, request.Estado, request.CEP);
+        await _repository.AddAsync(endereco);
+
+        return endereco.Id;
+    }
+}
+```
+
+---
+
+### FILE: exemplos/Endereco.Application/Enderecos/Commands/UpdateEnderecoCommand.cs
+```csharp
+using FluentValidation;
+using MediatR;
+
+namespace Endereco.Application.Enderecos.Commands;
+
+public record UpdateEnderecoCommand(Guid Id, string Rua, string Numero, string Cidade, string Estado, string CEP) : IRequest<bool>;
+
+public class UpdateEnderecoCommandValidator : AbstractValidator<UpdateEnderecoCommand>
+{
+    public UpdateEnderecoCommandValidator()
+    {
+        RuleFor(x => x.Id).NotEmpty();
+        RuleFor(x => x.Rua).NotEmpty().MaximumLength(100);
+        RuleFor(x => x.Numero).NotEmpty().MaximumLength(10);
+        RuleFor(x => x.Cidade).NotEmpty().MaximumLength(50);
+        RuleFor(x => x.Estado).NotEmpty().MaximumLength(50);
+        RuleFor(x => x.CEP).NotEmpty().Matches(@"^\d{5}-\d{3}$").WithMessage("CEP inválido.");
+    }
+}
+```
+
+---
+
+### FILE: exemplos/Endereco.Application/Enderecos/Commands/UpdateEnderecoCommandHandler.cs
+```csharp
+using Endereco.Domain.Interfaces;
+using MediatR;
+
+namespace Endereco.Application.Enderecos.Commands;
+
+public class UpdateEnderecoCommandHandler : IRequestHandler<UpdateEnderecoCommand, bool>
+{
+    private readonly IEnderecoRepository _repository;
+
+    public UpdateEnderecoCommandHandler(IEnderecoRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<bool> Handle(UpdateEnderecoCommand request, CancellationToken cancellationToken)
+    {
+        var endereco = await _repository.GetByIdAsync(request.Id);
+        if (endereco is null) return false;
+
+        endereco.Update(request.Rua, request.Numero, request.Cidade, request.Estado, request.CEP);
+        await _repository.UpdateAsync(endereco);
+
+        return true;
+    }
+}
+```
+
+---
+
+### FILE: exemplos/Endereco.Application/Enderecos/Commands/DeleteEnderecoCommand.cs
+```csharp
+using MediatR;
+
+namespace Endereco.Application.Enderecos.Commands;
+
+public record DeleteEnderecoCommand(Guid Id) : IRequest<bool>;
+```
+
+---
+
+### FILE: exemplos/Endereco.Application/Enderecos/Commands/DeleteEnderecoCommandHandler.cs
+```csharp
+using Endereco.Domain.Interfaces;
+using MediatR;
+
+namespace Endereco.Application.Enderecos.Commands;
+
+public class DeleteEnderecoCommandHandler : IRequestHandler<DeleteEnderecoCommand, bool>
+{
+    private readonly IEnderecoRepository _repository;
+
+    public DeleteEnderecoCommandHandler(IEnderecoRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<bool> Handle(DeleteEnderecoCommand request, CancellationToken cancellationToken)
+    {
+        var endereco = await _repository.GetByIdAsync(request.Id);
+        if (endereco is null) return false;
+
+        await _repository.DeleteAsync(endereco);
+        return true;
+    }
+}
+```
+
+---
+
+### FILE: exemplos/Endereco.Application/Enderecos/Queries/GetAllEnderecosQuery.cs
+```csharp
+using MediatR;
+
+namespace Endereco.Application.Enderecos.Queries;
+
+public record GetAllEnderecosQuery : IRequest<IEnumerable<EnderecoDto>>;
+
+public record EnderecoDto(Guid Id, string Rua, string Numero, string Cidade, string Estado, string CEP);
+```
+
+---
+
+### FILE: exemplos/Endereco.Application/Enderecos/Queries/GetAllEnderecosQueryHandler.cs
+```csharp
+using Endereco.Domain.Interfaces;
+using MediatR;
+
+namespace Endereco.Application.Enderecos.Queries;
+
+public class GetAllEnderecosQueryHandler : IRequestHandler<GetAllEnderecosQuery, IEnumerable<EnderecoDto>>
+{
+    private readonly IEnderecoRepository _repository;
+
+    public GetAllEnderecosQueryHandler(IEnderecoRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<IEnumerable<EnderecoDto>> Handle(GetAllEnderecosQuery request, CancellationToken cancellationToken)
+    {
+        var enderecos = await _repository.GetAllAsync();
+        return enderecos.Select(e => new EnderecoDto(e.Id, e.Rua, e.Numero, e.Cidade, e.Estado, e.CEP));
+    }
+}
+```
+
+---
+
+### FILE: exemplos/Endereco.Application/Enderecos/Queries/GetEnderecoByIdQuery.cs
+```csharp
+using MediatR;
+
+namespace Endereco.Application.Enderecos.Queries;
+
+public record GetEnderecoByIdQuery(Guid Id) : IRequest<EnderecoDto>;
+```
+
+---
+
+### FILE: exemplos/Endereco.Application/Enderecos/Queries/GetEnderecoByIdQueryHandler.cs
+```csharp
+using Endereco.Domain.Interfaces;
+using MediatR;
+
+namespace Endereco.Application.Enderecos.Queries;
+
+public class GetEnderecoByIdQueryHandler : IRequestHandler<GetEnderecoByIdQuery, EnderecoDto>
+{
+    private readonly IEnderecoRepository _repository;
+
+    public GetEnderecoByIdQueryHandler(IEnderecoRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<EnderecoDto> Handle(GetEnderecoByIdQuery request, CancellationToken cancellationToken)
+    {
+        var endereco = await _repository.GetByIdAsync(request.Id);
+        return endereco is null ? null : new EnderecoDto(endereco.Id, endereco.Rua, endereco.Numero, endereco.Cidade, endereco.Estado, endereco.CEP);
+    }
+}
+```
+
+---
+
+### FILE: exemplos/Endereco.Domain/Entities/Endereco.cs
+```csharp
+namespace Endereco.Domain.Entities;
+
+public class Endereco
+{
+    public Guid Id { get; private set; }
+    public string Rua { get; private set; }
+    public string Numero { get; private set; }
+    public string Cidade { get; private set; }
+    public string Estado { get; private set; }
+    public string CEP { get; private set; }
+
+    public Endereco(string rua, string numero, string cidade, string estado, string cep)
+    {
+        Id = Guid.NewGuid();
+        Rua = rua;
+        Numero = numero;
+        Cidade = cidade;
+        Estado = estado;
+        CEP = cep;
+    }
+
+    public void Update(string rua, string numero, string cidade, string estado, string cep)
+    {
+        Rua = rua;
+        Numero = numero;
+        Cidade = cidade;
+        Estado = estado;
+        CEP = cep;
+    }
+}
+```
+
+---
+
+### FILE: exemplos/Endereco.Domain/Interfaces/IEnderecoRepository.cs
+```csharp
+using Endereco.Domain.Entities;
+
+namespace Endereco.Domain.Interfaces;
+
+public interface IEnderecoRepository
+{
+    Task<bool> ExistsAsync(string rua, string numero, string cidade, string estado, string cep);
+    Task AddAsync(Endereco endereco);
+    Task<Endereco> GetByIdAsync(Guid id);
+    Task<IEnumerable<Endereco>> GetAllAsync();
+    Task UpdateAsync(Endereco endereco);
+    Task DeleteAsync(Endereco endereco);
+}
+```
+
+---
+
+### FILE: exemplos/Endereco.Infrastructure/DependencyInjection.cs
+```csharp
+using Endereco.Domain.Interfaces;
+using Endereco.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace Endereco.Infrastructure;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddDbContext<EnderecoDbContext>(options =>
+            options.UseInMemoryDatabase("EnderecoDb"));
+
+        services.AddScoped<IEnderecoRepository, EnderecoRepository>();
+
+        return services;
+    }
+}
+```
+
+---
+
+### FILE: exemplos/Endereco.Infrastructure/Persistence/EnderecoDbContext.cs
+```csharp
+using Endereco.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace Endereco.Infrastructure.Persistence;
+
+public class EnderecoDbContext : DbContext
+{
+    public EnderecoDbContext(DbContextOptions<EnderecoDbContext> options) : base(options) { }
+
+    public DbSet<Endereco> Enderecos { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Endereco>()
+            .HasIndex(e => new { e.Rua, e.Numero, e.Cidade, e.Estado, e.CEP })
+            .IsUnique();
+    }
+}
+```
+
+---
+
+### FILE: exemplos/Endereco.Infrastructure/Persistence/EnderecoRepository.cs
+```csharp
+using Endereco.Domain.Entities;
+using Endereco.Domain.Interfaces;
+using Microsoft.EntityFrameworkCore;
+
+namespace Endereco.Infrastructure.Persistence;
+
+public class EnderecoRepository : IEnderecoRepository
+{
+    private readonly EnderecoDbContext _context;
+
+    public EnderecoRepository(EnderecoDbContext context)
+    {
+        _context = context;
+    }
+
+    public async Task<bool> ExistsAsync(string rua, string numero, string cidade, string estado, string cep)
+    {
+        return await _context.Enderecos.AnyAsync(e =>
+            e.Rua == rua &&
+            e.Numero == numero &&
+            e.Cidade == cidade &&
+            e.Estado == estado &&
+            e.CEP == cep);
+    }
+
+    public async Task AddAsync(Endereco endereco)
+    {
+        await _context.Enderecos.AddAsync(endereco);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task<Endereco> GetByIdAsync(Guid id)
+    {
+        return await _context.Enderecos.FindAsync(id);
+    }
+
+    public async Task<IEnumerable<Endereco>> GetAllAsync()
+    {
+        return await _context.Enderecos.ToListAsync();
+    }
+
+    public async Task UpdateAsync(Endereco endereco)
+    {
+        _context.Enderecos.Update(endereco);
+        await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(Endereco endereco)
+    {
+        _context.Enderecos.Remove(endereco);
+        await _context.SaveChangesAsync();
+    }
+}
+```
+
+---
+
+### FILE: exemplos/README.md
+```markdown
+# Endereço API
+
+## Descrição
+
+API para gerenciamento de endereços.
+
+## Funcionalidades
+
+- CRUD de endereços
+- Validação para evitar endereços duplicados
+
+## Estrutura do Projeto
+
+- **API**: Endpoints e configuração da API.
+- **Application**: Casos de uso, comandos, consultas e validações.
+- **Domain**: Entidades e interfaces do domínio.
+- **Infrastructure**: Persistência e implementação de repositórios.
+
+## Como executar
+
+1. Clone o repositório.
+2. Navegue até a pasta `exemplos/Endereco.API`.
+3. Execute o comando `dotnet run`.
+4. Acesse a documentação da API em `https://localhost:5001/swagger`.
+
+## Tecnologias
+
+- .NET 8
+- ASP.NET Core
+- Entity Framework Core
+- MediatR
+- FluentValidation
+- In-Memory Database
+```
