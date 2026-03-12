@@ -283,21 +283,10 @@ jobs:
           if [ -n "$CSPROJ" ]; then
             echo "Stack detectada: .NET — $CSPROJ"
 
-            # Patch: AI frequentemente inventa versoes de pacotes que nao existem
-            # Substitui versoes especificas por * (ultima disponivel no NuGet)
-            python3 << 'PYEOF'
-            import re, glob
-            for csproj in glob.glob('**/*.csproj', recursive=True):
-                if '_build_tmp' in csproj:
-                    continue
-                with open(csproj) as f:
-                    content = f.read()
-                patched = re.sub(r'(<PackageReference[^>]*Version=")[^"]*(")', r'\g<1>*\g<2>', content)
-                if patched != content:
-                    with open(csproj, 'w') as f:
-                        f.write(patched)
-                    print("Versoes corrigidas para *: " + csproj)
-            PYEOF
+            # Patch: substitui versoes de pacotes por * (AI inventa versoes inexistentes)
+            find . -name "*.csproj" ! -path "./_build_tmp/*" \
+              -exec sed -i 's/Version="[^"]*"/Version="*"/g' {} \;
+            echo "Versoes de PackageReference corrigidas para *"
 
             dotnet restore "$CSPROJ"
             BUILD_LOG=$(dotnet build "$CSPROJ" --no-restore --no-incremental 2>&1) && BUILD_STATUS="passed" || BUILD_STATUS="failed"
