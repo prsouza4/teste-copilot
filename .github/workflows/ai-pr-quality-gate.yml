@@ -18,6 +18,76 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ── Execução de Testes (todos os PRs, sem exceção) ────────────────────────
+  executar-testes:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ⚙️ Configurar .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.x"
+
+      - name: 🔍 Localizar solutions .NET no PR
+        id: find-solutions
+        run: |
+          # Localiza arquivos .sln modificados ou verifica pastas com .sln
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD 2>/dev/null || git diff --name-only HEAD~1 2>/dev/null || echo "")
+          # Coleta pastas únicas que contêm .sln
+          DIRS=$(find . -name "*.sln" -not -path "*/node_modules/*" -exec dirname {} \; | sort -u)
+          echo "solutions_dirs=$DIRS" >> "$GITHUB_OUTPUT"
+          echo "Pastas com solutions encontradas:"
+          echo "$DIRS"
+
+      - name: 🧪 Executar dotnet test
+        id: run-tests
+        run: |
+          RESULTADO="✅ Todos os testes passaram"
+          FALHOU=false
+
+          find . -name "*.sln" -not -path "*/node_modules/*" | while read SLN; do
+            PASTA=$(dirname "$SLN")
+            echo "▶ Executando testes em: $PASTA"
+            if ! dotnet test "$SLN" --configuration Release --no-build 2>/dev/null; then
+              # Tenta com build
+              if ! dotnet test "$SLN" --configuration Debug --logger "console;verbosity=normal"; then
+                echo "❌ Testes falharam em: $SLN"
+                echo "TESTES_FALHARAM=true" >> "$GITHUB_ENV"
+              fi
+            fi
+          done
+
+      - name: 📋 Postar resultado dos testes no PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${TESTES_FALHARAM:-false}" = "true" ]; then
+            ICONE="❌"
+            STATUS="FALHOU — Corrigir antes do merge"
+          else
+            ICONE="✅"
+            STATUS="PASSOU"
+          fi
+
+          COMMENT="${ICONE} **Testes Automatizados: ${STATUS}**
+
+          \`\`\`
+          $(find . -name "*.sln" -not -path "*/node_modules/*" | while read SLN; do
+            dotnet test "$SLN" --configuration Debug --logger "console;verbosity=minimal" 2>&1 | tail -20 || true
+          done)
+          \`\`\`"
+
+          echo "$COMMENT" > test_result.txt
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file test_result.txt
+
+      - name: ❌ Falhar se testes quebraram
+        if: env.TESTES_FALHARAM == 'true'
+        run: exit 1
+
   # ── Revisão de Segurança ──────────────────────────────────────────────────
   security-review:
     name: Security Review
@@ -263,7 +333,7 @@ jobs:
     name: Aggregate Results
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    needs: [security-review, qa-review, architect-review]
+    needs: [executar-testes, security-review, qa-review, architect-review]
     if: always()
     steps:
       - uses: actions/checkout@v4
@@ -275,23 +345,29 @@ jobs:
           SECURITY_RESULT: ${{ needs.security-review.result }}
           QA_RESULT: ${{ needs.qa-review.result }}
           ARCHITECT_RESULT: ${{ needs.architect-review.result }}
+          TESTS_RESULT: ${{ needs.executar-testes.result }}
         run: |
           python3 << 'PYEOF'
           import os
 
-          def emoji(r): return "✅" if r == "success" else "❌"
+          def emoji(r): return "✅" if r == "success" else ("⏭️" if r == "skipped" else "❌")
 
-          sec = os.environ.get("SECURITY_RESULT", "unknown")
-          qa  = os.environ.get("QA_RESULT",       "unknown")
-          arc = os.environ.get("ARCHITECT_RESULT", "unknown")
+          sec   = os.environ.get("SECURITY_RESULT",  "unknown")
+          qa    = os.environ.get("QA_RESULT",         "unknown")
+          arc   = os.environ.get("ARCHITECT_RESULT",  "unknown")
+          tests = os.environ.get("TESTS_RESULT",      "unknown")
 
-          all_pass = all(r == "success" for r in [sec, qa, arc])
-          decision = "✅ APROVADO PARA MERGE" if all_pass else "⚠️ REVISAR COMENTÁRIOS ACIMA"
+          # Testes são obrigatórios. Reviews AI são opcionais (podem ser skipped para bots)
+          tests_ok   = tests == "success"
+          reviews_ok = all(r in ("success", "skipped") for r in [sec, qa, arc])
+          all_pass   = tests_ok and reviews_ok
+          decision   = "✅ APROVADO PARA MERGE" if all_pass else "⚠️ REVISAR ANTES DO MERGE"
 
           comment = f"""## 📊 Resultado Final da Revisão
 
           | Revisão | Status |
           |---------|--------|
+          | 🧪 Testes | {emoji(tests)} {tests} |
           | 🔒 Segurança | {emoji(sec)} {sec} |
           | ✅ Qualidade | {emoji(qa)} {qa} |
           | 🏗️ Arquitetura | {emoji(arc)} {arc} |
