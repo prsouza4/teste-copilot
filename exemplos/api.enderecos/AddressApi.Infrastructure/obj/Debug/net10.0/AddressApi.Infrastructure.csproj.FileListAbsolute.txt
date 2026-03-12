@@ -1,0 +1,13 @@
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Infrastructure/bin/Debug/net10.0/AddressApi.Infrastructure.deps.json
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Infrastructure/bin/Debug/net10.0/AddressApi.Infrastructure.dll
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Infrastructure/bin/Debug/net10.0/AddressApi.Infrastructure.pdb
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Infrastructure/obj/Debug/net10.0/AddressApi.Infrastructure.csproj.AssemblyReference.cache
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Infrastructure/obj/Debug/net10.0/AddressApi.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Infrastructure/obj/Debug/net10.0/AddressApi.Infrastructure.AssemblyInfoInputs.cache
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Infrastructure/obj/Debug/net10.0/AddressApi.Infrastructure.AssemblyInfo.cs
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Infrastructure/obj/Debug/net10.0/AddressApi.Infrastructure.csproj.CoreCompileInputs.cache
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Infrastructure/obj/Debug/net10.0/AddressApi.Infrastructure.sourcelink.json
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Infrastructure/obj/Debug/net10.0/AddressApi.Infrastructure.dll
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Infrastructure/obj/Debug/net10.0/refint/AddressApi.Infrastructure.dll
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Infrastructure/obj/Debug/net10.0/AddressApi.Infrastructure.pdb
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Infrastructure/obj/Debug/net10.0/ref/AddressApi.Infrastructure.dll

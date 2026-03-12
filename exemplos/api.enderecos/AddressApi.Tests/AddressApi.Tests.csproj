@@ -4,9 +4,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="xunit" Version="2.5.0" />
-    <PackageReference Include="Moq" Version="4.20.0" />
-    <PackageReference Include="FluentAssertions" Version="6.0.0" />
+    <ProjectReference Include="../AddressApi.API/AddressApi.API.csproj" />
+    <ProjectReference Include="../AddressApi.Infrastructure/AddressApi.Infrastructure.csproj" />
+    <PackageReference Include="xunit" Version="*" />
+    <PackageReference Include="Moq" Version="*" />
+    <PackageReference Include="FluentAssertions" Version="*" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../AddressApi.Domain/AddressApi.Domain.csproj" />

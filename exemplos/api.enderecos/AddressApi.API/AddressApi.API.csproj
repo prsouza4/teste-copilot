@@ -4,6 +4,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="7.0.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="*" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../AddressApi.Application/AddressApi.Application.csproj" />
   </ItemGroup>
 </Project>

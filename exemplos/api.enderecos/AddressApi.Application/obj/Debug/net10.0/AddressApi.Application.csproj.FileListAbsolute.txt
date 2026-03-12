@@ -1,0 +1,16 @@
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Application/obj/Debug/net10.0/AddressApi.Application.csproj.AssemblyReference.cache
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Application/obj/Debug/net10.0/AddressApi.Application.GeneratedMSBuildEditorConfig.editorconfig
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Application/obj/Debug/net10.0/AddressApi.Application.AssemblyInfoInputs.cache
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Application/obj/Debug/net10.0/AddressApi.Application.AssemblyInfo.cs
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Application/obj/Debug/net10.0/AddressApi.Application.csproj.CoreCompileInputs.cache
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Application/obj/Debug/net10.0/AddressApi.Application.sourcelink.json
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Application/bin/Debug/net10.0/AddressApi.Application.deps.json
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Application/bin/Debug/net10.0/AddressApi.Application.dll
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Application/bin/Debug/net10.0/AddressApi.Application.pdb
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Application/bin/Debug/net10.0/AddressApi.Domain.dll
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Application/bin/Debug/net10.0/AddressApi.Domain.pdb
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Application/obj/Debug/net10.0/AddressA.D90B8DF1.Up2Date
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Application/obj/Debug/net10.0/AddressApi.Application.dll
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Application/obj/Debug/net10.0/refint/AddressApi.Application.dll
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Application/obj/Debug/net10.0/AddressApi.Application.pdb
+/home/runner/work/teste-copilot/teste-copilot/exemplos/api.enderecos/AddressApi.Application/obj/Debug/net10.0/ref/AddressApi.Application.dll

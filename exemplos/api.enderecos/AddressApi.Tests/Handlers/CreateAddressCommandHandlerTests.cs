@@ -1,6 +1,7 @@
 using AddressApi.Application.Commands;
 using AddressApi.Application.Handlers;
 using FluentAssertions;
+using System.Threading.Tasks;
 using Xunit;
 
 namespace AddressApi.Tests.Handlers;

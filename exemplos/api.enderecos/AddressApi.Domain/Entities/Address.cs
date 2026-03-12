@@ -1,3 +1,5 @@
+using System;
+
 namespace AddressApi.Domain.Entities;
 
 public class Address
